@@ -18,7 +18,10 @@ public class Review {
     private String type;
 
     @Column(nullable = false)
-    private String reviewedName;
+    private String reviewedFirstName;
+
+    @Column(nullable = false)
+    private String reviewedLastName;
 
     @Column(nullable = false)
     private long ticketID;
@@ -38,21 +41,25 @@ public class Review {
     @Column(nullable = false)
     private boolean accepted;
 
-    //private User reviewerName
+    @ManyToOne (fetch = FetchType.EAGER)
+    @JoinColumn(name = "reviewer_id", nullable = false)
+    private User reviewer;
 
     //Default constructor (required by JPA)
 
     public Review() {}
 
-    public Review(String type, String reviewedName, long ticketID, Date interactionDate, Time interactionTime, long cid, int finalGrade, boolean accepted) {
+    public Review(String type, String reviewedFirstName, String reviewedLastName, long ticketID, Date interactionDate, Time interactionTime, long cid, int finalGrade, boolean accepted, User reviewer) {
         this.type = type;
-        this.reviewedName = reviewedName;
+        this.reviewedFirstName = reviewedFirstName;
+        this.reviewedLastName = reviewedLastName;
         this.ticketID = ticketID;
         this.interactionDate = interactionDate;
         this.interactionTime = interactionTime;
         this.cid = cid;
         this.finalGrade = finalGrade;
         this.accepted = accepted;
+        this.reviewer = reviewer;
     }
 
     public long getId() {
@@ -71,12 +78,20 @@ public class Review {
         this.type = type;
     }
 
-    public String getReviewedName() {
-        return reviewedName;
+    public String getReviewedFirstName() {
+        return reviewedFirstName;
     }
 
-    public void setReviewedName(String reviewedName) {
-        this.reviewedName = reviewedName;
+    public void setReviewedFirstName(String reviewedFirstName) {
+        this.reviewedFirstName = reviewedFirstName;
+    }
+
+    public String getReviewedLastName() {
+        return reviewedLastName;
+    }
+
+    public void setReviewedLastName(String reviewedLastName) {
+        this.reviewedLastName = reviewedLastName;
     }
 
     public long getTicketID() {
@@ -125,5 +140,13 @@ public class Review {
 
     public void setAccepted(boolean accepted) {
         this.accepted = accepted;
+    }
+
+    public User getReviewer() {
+        return reviewer;
+    }
+
+    public void setReviewer(User reviewer) {
+        this.reviewer = reviewer;
     }
 }
