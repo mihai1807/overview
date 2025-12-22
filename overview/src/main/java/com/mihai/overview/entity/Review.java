@@ -1,152 +1,72 @@
 package com.mihai.overview.entity;
 
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
-import java.sql.Time;
-import java.util.Date;
+import java.time.LocalDate;
+import java.time.LocalTime;
 
-@Table(name = "Reviews")
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
+
+@Table(name = "reviews",
+        indexes = {
+                @Index(name = "ix_reviews_reviewer", columnList = "reviewer_id"),
+                @Index(name = "ix_reviews_reviewed", columnList = "reviewed_user_id"),
+                @Index(name = "ix_reviews_date", columnList = "interaction_date"),
+                @Index(name = "ix_reviews_reviewer_date", columnList = "reviewer_id, interaction_date"),
+                @Index(name = "ix_reviewed_user_id_interaction_score", columnList = "reviewed_user_id, interaction_score")
+        }
+)
 public class Review {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
-    private long id;
+    private Long id;
+
+    @Column(name = "review_type", nullable = false)
+    private String reviewType;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn (name ="reviewed_user_id", nullable = false)
+    private User reviewedUser;
+
+    @Column(name = "ticket_id", nullable = false)
+    private Long ticketId;
+
+    @Column(name = "interaction_date", nullable = false)
+    private LocalDate interactionDate;
+
+    @Column(name = "interaction_time", nullable = false)
+    private LocalTime interactionTime;
 
     @Column(nullable = false)
-    private String type;
+    private Long cid;
 
-    @Column(nullable = false)
-    private String reviewedFirstName;
-
-    @Column(nullable = false)
-    private String reviewedLastName;
-
-    @Column(nullable = false)
-    private long ticketID;
-
-    @Column(nullable = false)
-    private Date interactionDate;
-
-    @Column(nullable = false)
-    private Time interactionTime;
-
-    @Column(nullable = false)
-    private long cid;
-
-    @Column(nullable = false)
-    private int finalGrade;
+    @Column(name = "interaction_score", nullable = false)
+    private int interactionScore;
 
     @Column(nullable = false)
     private boolean accepted;
 
-    @ManyToOne (fetch = FetchType.EAGER)
+    @ManyToOne (fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reviewer_id", nullable = false)
     private User reviewer;
 
-    //Default constructor (required by JPA)
-
-    public Review() {}
-
-    public Review(String type, String reviewedFirstName, String reviewedLastName, long ticketID, Date interactionDate, Time interactionTime, long cid, int finalGrade, boolean accepted, User reviewer) {
-        this.type = type;
-        this.reviewedFirstName = reviewedFirstName;
-        this.reviewedLastName = reviewedLastName;
-        this.ticketID = ticketID;
+    public Review(String reviewType, User reviewedUser, Long ticketId, LocalDate interactionDate, LocalTime interactionTime, Long cid, int interactionScore, boolean accepted, User reviewer) {
+        this.reviewType = reviewType;
+        this.reviewedUser = reviewedUser;
+        this.ticketId = ticketId;
         this.interactionDate = interactionDate;
         this.interactionTime = interactionTime;
         this.cid = cid;
-        this.finalGrade = finalGrade;
+        this.interactionScore = interactionScore;
         this.accepted = accepted;
-        this.reviewer = reviewer;
-    }
-
-    public long getId() {
-        return id;
-    }
-
-    public void setId(long id) {
-        this.id = id;
-    }
-
-    public String getType() {
-        return type;
-    }
-
-    public void setType(String type) {
-        this.type = type;
-    }
-
-    public String getReviewedFirstName() {
-        return reviewedFirstName;
-    }
-
-    public void setReviewedFirstName(String reviewedFirstName) {
-        this.reviewedFirstName = reviewedFirstName;
-    }
-
-    public String getReviewedLastName() {
-        return reviewedLastName;
-    }
-
-    public void setReviewedLastName(String reviewedLastName) {
-        this.reviewedLastName = reviewedLastName;
-    }
-
-    public long getTicketID() {
-        return ticketID;
-    }
-
-    public void setTicketID(long ticketID) {
-        this.ticketID = ticketID;
-    }
-
-    public Date getInteractionDate() {
-        return interactionDate;
-    }
-
-    public void setInteractionDate(Date interactionDate) {
-        this.interactionDate = interactionDate;
-    }
-
-    public Time getInteractionTime() {
-        return interactionTime;
-    }
-
-    public void setInteractionTime(Time interactionTime) {
-        this.interactionTime = interactionTime;
-    }
-
-    public long getCid() {
-        return cid;
-    }
-
-    public void setCid(long cid) {
-        this.cid = cid;
-    }
-
-    public int getFinalGrade() {
-        return finalGrade;
-    }
-
-    public void setFinalGrade(int finalGrade) {
-        this.finalGrade = finalGrade;
-    }
-
-    public boolean isAccepted() {
-        return accepted;
-    }
-
-    public void setAccepted(boolean accepted) {
-        this.accepted = accepted;
-    }
-
-    public User getReviewer() {
-        return reviewer;
-    }
-
-    public void setReviewer(User reviewer) {
         this.reviewer = reviewer;
     }
 }
