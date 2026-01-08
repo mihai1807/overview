@@ -1,11 +1,11 @@
 package com.mihai.overview.controller;
 
-import com.mihai.overview.entity.User;
+import com.mihai.overview.request.PasswordUpdateRequest;
+import com.mihai.overview.response.UserResponse;
 import com.mihai.overview.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.*;
 
 @RequestMapping ("/api/users")
 @RestController
@@ -19,7 +19,18 @@ public class UserController {
     }
 
     @GetMapping("/info")
-    private User getUserInfo() {
+    private UserResponse getUserInfo() {
         return userService.getUserInfo();
+    }
+
+    @DeleteMapping
+    public void deleteUser() {
+        userService.deleteUser();
+    }
+
+    @PutMapping("/password")
+    public void passwordUpdate(@Valid @RequestBody PasswordUpdateRequest passwordUpdateRequest)
+            throws Exception {
+        userService.updatePassword(passwordUpdateRequest);
     }
 }
