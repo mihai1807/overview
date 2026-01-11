@@ -50,11 +50,11 @@ public class User implements UserDetails {
     @CollectionTable(name = "user_authorities", joinColumns = @JoinColumn(name = "user_id"))
     private List<Authority> authorities;
 
-    @OneToMany(mappedBy = "reviewer")
+/*    @OneToMany(mappedBy = "reviewer")
     private List<Review> reviewsWritten;
 
     @OneToMany(mappedBy = "reviewedUser")
-    private List<Review> reviewsReceived;
+    private List<Review> reviewsReceived;*/
 
 
     @Override

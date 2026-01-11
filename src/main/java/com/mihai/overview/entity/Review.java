@@ -1,6 +1,7 @@
 package com.mihai.overview.entity;
 
 import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -24,6 +25,7 @@ import java.time.LocalTime;
 )
 public class Review {
 
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
@@ -32,9 +34,9 @@ public class Review {
     @Column(name = "review_type", nullable = false)
     private String reviewType;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn (name ="reviewed_user_id", nullable = false)
-    private User reviewedUser;
+
+    @Column (name ="reviewed_user_id", nullable = false)
+    private Long reviewedUserId;
 
     @Column(name = "ticket_id", nullable = false)
     private Long ticketId;
@@ -54,19 +56,19 @@ public class Review {
     @Column(nullable = false)
     private boolean accepted;
 
-    @ManyToOne (fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "reviewer_id", nullable = false)
-    private User reviewer;
+    @Column(name = "reviewer_id", nullable = false)
+    private Long reviewerId;
 
-    public Review(String reviewType, User reviewedUser, Long ticketId, LocalDate interactionDate, LocalTime interactionTime, Long cid, int interactionScore, boolean accepted, User reviewer) {
+    public Review(String reviewType, Long reviewedUserId, Long ticketId, LocalDate interactionDate, LocalTime interactionTime, Long cid, int interactionScore, boolean accepted, Long reviewerID) {
         this.reviewType = reviewType;
-        this.reviewedUser = reviewedUser;
+        this.reviewedUserId = reviewedUserId;
         this.ticketId = ticketId;
         this.interactionDate = interactionDate;
         this.interactionTime = interactionTime;
         this.cid = cid;
         this.interactionScore = interactionScore;
         this.accepted = accepted;
-        this.reviewer = reviewer;
+        this.reviewerId = reviewerID;
     }
+
 }
