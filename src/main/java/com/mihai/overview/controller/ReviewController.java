@@ -1,6 +1,5 @@
 package com.mihai.overview.controller;
 
-import com.mihai.overview.entity.Review;
 import com.mihai.overview.request.ReviewRequest;
 import com.mihai.overview.response.ReviewResponse;
 import com.mihai.overview.service.ReviewService;
