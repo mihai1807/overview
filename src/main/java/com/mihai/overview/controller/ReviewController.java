@@ -10,6 +10,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.mihai.overview.request.ReviewCreateWithKpisRequest;
 
 import java.util.List;
 
@@ -39,6 +40,13 @@ public class ReviewController {
     @GetMapping("/created")
     public ResponseEntity<List<ReviewResponse>> getCreatedReviews() {
         return ResponseEntity.ok(reviewService.getAllReviewsCreatedByUserId());
+    }
+
+    @Operation(summary = "Create a review with KPI scores", description = "Creates a review using the active KPI scheme for the given review type and computes the total score")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping("/with-kpis")
+    public ReviewResponse createReviewWithKpis(@Valid @RequestBody ReviewCreateWithKpisRequest request) {
+        return reviewService.createReviewWithKpis(request);
     }
 
 }

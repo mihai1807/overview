@@ -20,7 +20,8 @@ import java.time.LocalTime;
                 @Index(name = "ix_reviews_reviewed", columnList = "reviewed_user_id"),
                 @Index(name = "ix_reviews_date", columnList = "interaction_date"),
                 @Index(name = "ix_reviews_reviewer_date", columnList = "reviewer_id, interaction_date"),
-                @Index(name = "ix_reviewed_user_id_interaction_score", columnList = "reviewed_user_id, interaction_score")
+                @Index(name = "ix_reviewed_user_id_interaction_score", columnList = "reviewed_user_id, interaction_score"),
+                @Index(name = "ix_reviews_kpi_scheme", columnList = "kpi_scheme_id")
         }
 )
 public class Review {
@@ -58,6 +59,13 @@ public class Review {
 
     @Column(name = "reviewer_id", nullable = false)
     private Long reviewerId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "kpi_scheme_id")
+    private KpiScheme kpiScheme;
+
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    private java.util.Set<ReviewKpiScore> kpiScores = new java.util.HashSet<>();
 
     public Review(String reviewType, Long reviewedUserId, Long ticketId, LocalDate interactionDate, LocalTime interactionTime, Long cid, int interactionScore, boolean accepted, Long reviewerID) {
         this.reviewType = reviewType;
