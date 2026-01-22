@@ -10,4 +10,5 @@ import java.util.List;
 public interface ReviewRepository extends CrudRepository<Review, Long> {
     List<Review> findByReviewerId (Long reviewerId);
     List<Review> findByReviewedUserId (Long reviewedUserId);
+    boolean existsByKpiScheme_Id(Long schemeId);
 }

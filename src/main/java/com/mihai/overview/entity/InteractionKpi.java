@@ -34,4 +34,10 @@ public class InteractionKpi {
 
     @Column(nullable = false)
     private boolean active = true;
+
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
+    @Column(nullable = false)
+    private boolean archived = false;
 }

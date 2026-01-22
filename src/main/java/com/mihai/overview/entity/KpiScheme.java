@@ -36,4 +36,10 @@ public class KpiScheme {
 
     @OneToMany(mappedBy = "scheme", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<KpiSchemeItem> items = new HashSet<>();
+
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
+    @Column(nullable = false)
+    private boolean archived = false;
 }

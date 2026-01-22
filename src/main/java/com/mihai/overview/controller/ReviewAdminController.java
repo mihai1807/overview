@@ -15,6 +15,8 @@ import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+import com.mihai.overview.request.UpdateKpiSchemeItemRequest;
+import com.mihai.overview.request.UpdateKpiSchemeRequest;
 
 @Tag(name = "Admin Review Config API", description = "Admin operations for review types, KPIs, and KPI schemes")
 @AllArgsConstructor
@@ -61,5 +63,31 @@ public class ReviewAdminController {
                                              @PathVariable Long schemeId) {
         return reviewAdminService.activateSchemeForReviewType(reviewTypeId, schemeId);
     }
+
+    @PutMapping("/schemes/{schemeId}")
+    public KpiSchemeResponse updateScheme(@PathVariable Long schemeId,
+                                          @Valid @RequestBody UpdateKpiSchemeRequest request) {
+        return reviewAdminService.updateScheme(schemeId, request);
+    }
+
+    @PutMapping("/schemes/{schemeId}/items/{schemeItemId}")
+    public KpiSchemeResponse updateSchemeItemVersioned(@PathVariable Long schemeId,
+                                                       @PathVariable Long schemeItemId,
+                                                       @Valid @RequestBody UpdateKpiSchemeItemRequest request) {
+        return reviewAdminService.updateSchemeItemVersioned(schemeId, schemeItemId, request);
+    }
+
+    @DeleteMapping("/schemes/{schemeId}")
+    @ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void deleteScheme(@PathVariable Long schemeId) {
+        reviewAdminService.deleteScheme(schemeId);
+    }
+
+    @DeleteMapping("/schemes/{schemeId}/items/{schemeItemId}")
+    public KpiSchemeResponse deleteSchemeItemVersioned(@PathVariable Long schemeId,
+                                                       @PathVariable Long schemeItemId) {
+        return reviewAdminService.deleteSchemeItemVersioned(schemeId, schemeItemId);
+    }
+
 }
 

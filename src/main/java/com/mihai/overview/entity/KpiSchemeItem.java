@@ -49,4 +49,10 @@ public class KpiSchemeItem {
 
     @Column(nullable = false)
     private boolean required = true;
+
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
+
+    @Column(nullable = false)
+    private boolean archived = false;
 }

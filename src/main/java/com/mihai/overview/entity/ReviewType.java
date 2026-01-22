@@ -42,4 +42,7 @@ public class ReviewType {
 
     @OneToMany(mappedBy = "reviewType", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<KpiScheme> schemes = new HashSet<>();
+
+    @Column(name = "created_by_user_id")
+    private Long createdByUserId;
 }

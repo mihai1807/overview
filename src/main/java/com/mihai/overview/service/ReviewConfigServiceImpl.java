@@ -32,7 +32,14 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
             throw new IllegalStateException("No active KPI scheme configured for ReviewType: " + reviewTypeCode);
         }
 
-        List<KpiSchemeItem> items = kpiSchemeItemRepository.findByScheme_Id(active.getId());
+        if (active.isArchived()) {
+            throw new IllegalStateException("Active scheme is archived for ReviewType: " + reviewTypeCode);
+        }
+
+        List<KpiSchemeItem> items = kpiSchemeItemRepository.findByScheme_Id(active.getId())
+                .stream()
+                .filter(i -> !i.isArchived())
+                .toList();
 
         List<SchemeItemResponse> itemResponses = items.stream()
                 .sorted(Comparator.comparingInt(KpiSchemeItem::getOrderIndex))

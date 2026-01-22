@@ -7,4 +7,5 @@ import java.util.List;
 
 public interface KpiSchemeItemRepository extends JpaRepository<KpiSchemeItem, Long> {
     List<KpiSchemeItem> findByScheme_Id(Long schemeId);
+    List<KpiSchemeItem> findByScheme_IdAndArchivedFalse(Long schemeId);
 }
