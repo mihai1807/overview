@@ -63,7 +63,7 @@ public class User implements UserDetails {
     }
 
     public void setAuthorities(List<Authority> authorities) {
-        this.authorities = authorities;
+        this.authorities = new java.util.ArrayList<>(authorities);
     }
 
     @Override
