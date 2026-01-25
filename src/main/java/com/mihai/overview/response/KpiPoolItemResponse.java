@@ -2,14 +2,14 @@ package com.mihai.overview.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.Setter;
 
 @AllArgsConstructor
 @Getter
-@Setter
-public class KpiSchemeResponse {
+public class KpiPoolItemResponse {
     private Long id;
-    private Long reviewTypeId;
+    private Long interactionTypeId;
     private String name;
-    private boolean active;
+    private String description;
+    private String details;
+    private int weightPercent;
 }

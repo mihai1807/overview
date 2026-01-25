@@ -7,13 +7,13 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class CreateReviewTypeRequest {
+public class CreateInteractionTypeRequest {
 
     @NotBlank
     @Size(max = 50)
-    private String code; // e.g. CHAT
+    private String code; // CHAT, EMAIL, etc.
 
     @NotBlank
     @Size(max = 100)
-    private String name; // e.g. Chat Review
+    private String name; // display label
 }

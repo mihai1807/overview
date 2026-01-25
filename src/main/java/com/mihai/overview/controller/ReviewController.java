@@ -1,52 +1,24 @@
 package com.mihai.overview.controller;
 
-import com.mihai.overview.request.ReviewRequest;
+import com.mihai.overview.request.CreateReviewRequest;
 import com.mihai.overview.response.ReviewResponse;
 import com.mihai.overview.service.ReviewService;
-import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import com.mihai.overview.request.ReviewCreateWithKpisRequest;
 
-import java.util.List;
-
-
-@Tag(name = "Reviews REST API", description = "Operations for managing reviews")
 @AllArgsConstructor
 @RestController
+@Tag(name = "Reviews", description = "Create reviews using a selected scheme.")
 @RequestMapping("/api/reviews")
 public class ReviewController {
 
     private final ReviewService reviewService;
 
-    @Operation(summary = "Create a review", description = "Create a review for another user")
-    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping
-    public ReviewResponse createReview(@Valid @RequestBody ReviewRequest reviewRequest) {
-        return reviewService.createReview(reviewRequest);
+    public ResponseEntity<ReviewResponse> create(@Valid @RequestBody CreateReviewRequest request) {
+        return ResponseEntity.ok(reviewService.createReview(request));
     }
-
-    @Operation(summary = "View received reviews", description = "View all reviews created for a specific user by ID")
-    @GetMapping("/received/{userId}")
-    public ResponseEntity<List<ReviewResponse>> getReceivedReviews(@PathVariable Long userId) {
-        return ResponseEntity.ok(reviewService.getAllReviewsReceivedByUserId(userId));
-    }
-
-    @Operation(summary = "View created reviews", description = "View all reviews created by the logged in user")
-    @GetMapping("/created")
-    public ResponseEntity<List<ReviewResponse>> getCreatedReviews() {
-        return ResponseEntity.ok(reviewService.getAllReviewsCreatedByUserId());
-    }
-
-    @Operation(summary = "Create a review with KPI scores", description = "Creates a review using the active KPI scheme for the given review type and computes the total score")
-    @ResponseStatus(HttpStatus.CREATED)
-    @PostMapping("/with-kpis")
-    public ReviewResponse createReviewWithKpis(@Valid @RequestBody ReviewCreateWithKpisRequest request) {
-        return reviewService.createReviewWithKpis(request);
-    }
-
 }

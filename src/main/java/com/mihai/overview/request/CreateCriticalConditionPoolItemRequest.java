@@ -7,8 +7,13 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class UpdateKpiSchemeRequest {
+public class CreateCriticalConditionPoolItemRequest {
+
     @NotBlank
-    @Size(max = 100)
+    @Size(max = 120)
     private String name;
+
+    @NotBlank
+    @Size(max = 500)
+    private String description;
 }

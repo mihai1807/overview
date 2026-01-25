@@ -1,82 +1,69 @@
 package com.mihai.overview.entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @Entity
-
 @Table(name = "reviews",
         indexes = {
+                @Index(name = "ix_reviews_scheme", columnList = "scheme_id"),
+                @Index(name = "ix_reviews_reviewed_period", columnList = "reviewed_user_id, period_key"),
                 @Index(name = "ix_reviews_reviewer", columnList = "reviewer_id"),
-                @Index(name = "ix_reviews_reviewed", columnList = "reviewed_user_id"),
-                @Index(name = "ix_reviews_date", columnList = "interaction_date"),
-                @Index(name = "ix_reviews_reviewer_date", columnList = "reviewer_id, interaction_date"),
-                @Index(name = "ix_reviewed_user_id_interaction_score", columnList = "reviewed_user_id, interaction_score"),
-                @Index(name = "ix_reviews_kpi_scheme", columnList = "kpi_scheme_id")
+                @Index(name = "ix_reviews_occurred", columnList = "occurred_at")
         }
 )
 public class Review {
-
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(nullable = false)
     private Long id;
 
-    @Column(name = "review_type", nullable = false)
-    private String reviewType;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "scheme_id", nullable = false)
+    private Scheme scheme;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "interaction_type_id", nullable = false)
+    private InteractionType interactionType;
 
-    @Column (name ="reviewed_user_id", nullable = false)
+    @Column(name = "reviewed_user_id", nullable = false)
     private Long reviewedUserId;
-
-    @Column(name = "ticket_id", nullable = false)
-    private Long ticketId;
-
-    @Column(name = "interaction_date", nullable = false)
-    private LocalDate interactionDate;
-
-    @Column(name = "interaction_time", nullable = false)
-    private LocalTime interactionTime;
-
-    @Column(nullable = false)
-    private Long cid;
-
-    @Column(name = "interaction_score", nullable = false)
-    private int interactionScore;
-
-    @Column(nullable = false)
-    private boolean accepted;
 
     @Column(name = "reviewer_id", nullable = false)
     private Long reviewerId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "kpi_scheme_id")
-    private KpiScheme kpiScheme;
+    @Column(name = "ticket_id")
+    private Long ticketId;
+
+    @Column(name = "cid")
+    private Long cid;
+
+    @Column(name = "occurred_at", nullable = false)
+    private LocalDateTime occurredAt;
+
+    // "YYYY-MM"
+    @Column(name = "period_key", nullable = false, length = 7)
+    private String periodKey;
+
+    @Column(name = "total_score", nullable = false)
+    private int totalScore; // 0..100
+
+    @Column(nullable = false)
+    private boolean accepted = true;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
-    private java.util.Set<ReviewKpiScore> kpiScores = new java.util.HashSet<>();
+    private Set<ReviewKpiScore> kpiScores = new HashSet<>();
 
-    public Review(String reviewType, Long reviewedUserId, Long ticketId, LocalDate interactionDate, LocalTime interactionTime, Long cid, int interactionScore, boolean accepted, Long reviewerID) {
-        this.reviewType = reviewType;
-        this.reviewedUserId = reviewedUserId;
-        this.ticketId = ticketId;
-        this.interactionDate = interactionDate;
-        this.interactionTime = interactionTime;
-        this.cid = cid;
-        this.interactionScore = interactionScore;
-        this.accepted = accepted;
-        this.reviewerId = reviewerID;
-    }
-
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    private Set<ReviewCriticalHit> criticalHits = new HashSet<>();
 }

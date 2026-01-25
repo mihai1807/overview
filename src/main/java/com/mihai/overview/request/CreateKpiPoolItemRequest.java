@@ -1,5 +1,7 @@
 package com.mihai.overview.request;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -7,7 +9,7 @@ import lombok.Setter;
 
 @Getter
 @Setter
-public class CreateInteractionKpiRequest {
+public class CreateKpiPoolItemRequest {
 
     @NotBlank
     @Size(max = 100)
@@ -16,4 +18,11 @@ public class CreateInteractionKpiRequest {
     @NotBlank
     @Size(max = 500)
     private String description;
+
+    @NotBlank
+    private String details;
+
+    @Min(0)
+    @Max(100)
+    private int weightPercent;
 }

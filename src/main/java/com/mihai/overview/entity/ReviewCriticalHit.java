@@ -9,14 +9,14 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "review_kpi_scores",
-        uniqueConstraints = @UniqueConstraint(name = "uq_review_kpi", columnNames = {"review_id", "kpi_id"}),
+@Table(name = "review_critical_hits",
+        uniqueConstraints = @UniqueConstraint(name = "uq_review_critical", columnNames = {"review_id", "critical_id"}),
         indexes = {
-                @Index(name = "ix_review_kpi_scores_review", columnList = "review_id"),
-                @Index(name = "ix_review_kpi_scores_kpi", columnList = "kpi_id")
+                @Index(name = "ix_review_critical_hits_review", columnList = "review_id"),
+                @Index(name = "ix_review_critical_hits_critical", columnList = "critical_id")
         }
 )
-public class ReviewKpiScore {
+public class ReviewCriticalHit {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -28,9 +28,9 @@ public class ReviewKpiScore {
     private Review review;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "kpi_id", nullable = false)
-    private KpiPoolItem kpi;
+    @JoinColumn(name = "critical_id", nullable = false)
+    private CriticalConditionPoolItem critical;
 
     @Column(nullable = false)
-    private int score; // 0..100
+    private boolean triggered;
 }

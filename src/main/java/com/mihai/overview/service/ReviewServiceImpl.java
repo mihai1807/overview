@@ -1,189 +1,146 @@
 package com.mihai.overview.service;
 
-import com.mihai.overview.entity.KpiSchemeItem;
-import com.mihai.overview.entity.Review;
-import com.mihai.overview.entity.User;
-import com.mihai.overview.repository.KpiSchemeItemRepository;
-import com.mihai.overview.repository.ReviewKpiScoreRepository;
-import com.mihai.overview.repository.ReviewRepository;
-import com.mihai.overview.repository.ReviewTypeRepository;
-import com.mihai.overview.request.ReviewCreateWithKpisRequest;
-import com.mihai.overview.request.ReviewRequest;
+import com.mihai.overview.entity.*;
+import com.mihai.overview.repository.*;
+import com.mihai.overview.request.CreateReviewRequest;
 import com.mihai.overview.response.ReviewResponse;
-import com.mihai.overview.util.FindAuthenticatedUser;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.mihai.overview.entity.ReviewType;
-import com.mihai.overview.entity.KpiScheme;
 
-import java.util.List;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @AllArgsConstructor
-public class ReviewServiceImpl implements ReviewService{
+public class ReviewServiceImpl implements ReviewService {
 
+    private static final DateTimeFormatter PERIOD_FMT = DateTimeFormatter.ofPattern("yyyy-MM");
+
+    private final SchemeRepository schemeRepository;
+    private final KpiPoolItemRepository kpiPoolItemRepository;
+    private final CriticalConditionPoolItemRepository criticalPoolRepository;
     private final ReviewRepository reviewRepository;
-    private final FindAuthenticatedUser findAuthenticatedUser;
-    private final ReviewTypeRepository reviewTypeRepository;
-    private final KpiSchemeItemRepository kpiSchemeItemRepository;
-    private final ReviewKpiScoreRepository reviewKpiScoreRepository;
 
     @Override
     @Transactional
-    public ReviewResponse createReview(ReviewRequest reviewRequest) {
-        User currentUser = findAuthenticatedUser.getAuthenticatedUser();
+    public ReviewResponse createReview(CreateReviewRequest request) {
 
-        Review review = new Review(
-                reviewRequest.getReviewType(),
-                reviewRequest.getReviewedUserId(),
-                reviewRequest.getTicketId(),
-                reviewRequest.getInteractionDate(),
-                reviewRequest.getInteractionTime(),
-                reviewRequest.getCid(),
-                reviewRequest.getInteractionScore(),
-                false,
-                currentUser.getId()
-        );
+        Scheme scheme = schemeRepository.findById(request.getSchemeId())
+                .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + request.getSchemeId()));
 
-        Review savedReview = reviewRepository.save(review);
-
-        return new ReviewResponse(
-                savedReview.getId(),
-                savedReview.getTicketId(),
-                savedReview.getReviewedUserId(),
-                savedReview.getInteractionScore()
-        );
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ReviewResponse> getAllReviewsReceivedByUserId(Long userId) {
-        User currentUser = findAuthenticatedUser.getAuthenticatedUser();
-        if (currentUser == null) {
-            throw new SecurityException("Unauthorized access: user not authenticated");
-        }
-        return reviewRepository.findByReviewedUserId(userId)
-                .stream()
-                .map(this::convertToReviewResponse)
-                .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ReviewResponse> getAllReviewsCreatedByUserId() {
-        User currentUser = findAuthenticatedUser.getAuthenticatedUser();
-        if (currentUser == null) {
-            throw new SecurityException("Unauthorized access: user not authenticated");
-        }
-        return reviewRepository.findByReviewerId(currentUser.getId())
-                .stream()
-                .map(this::convertToReviewResponse)
-                .toList();
-    }
-
-
-    private ReviewResponse convertToReviewResponse (Review review) {
-        return new ReviewResponse(
-                review.getId(),
-                review.getTicketId(),
-                review.getReviewedUserId(),
-                review.getInteractionScore()
-        );
-    }
-
-    @Override
-    @Transactional
-    public ReviewResponse createReviewWithKpis(ReviewCreateWithKpisRequest request) {
-        User currentUser = findAuthenticatedUser.getAuthenticatedUser();
-
-        ReviewType type = reviewTypeRepository.findByCode(request.getReviewTypeCode())
-                .orElseThrow(() -> new IllegalArgumentException("ReviewType not found: " + request.getReviewTypeCode()));
-
-        KpiScheme activeScheme = type.getActiveScheme();
-        if (activeScheme == null) {
-            throw new IllegalStateException("No active KPI scheme configured for ReviewType: " + type.getCode());
+        if (scheme.isArchived()) {
+            throw new IllegalArgumentException("Scheme is archived");
         }
 
-        // load scheme items for validation and weight calculation
-        List<KpiSchemeItem> schemeItems = kpiSchemeItemRepository.findByScheme_Id(activeScheme.getId());
+        InteractionType type = scheme.getInteractionType();
 
-        int totalWeight = schemeItems.stream().mapToInt(KpiSchemeItem::getWeightPercent).sum();
-        if (totalWeight != 100) {
-            throw new IllegalStateException("Scheme weights must total 100%. Current total: " + totalWeight);
-        }
+        // Build allowed KPI ids from scheme rules
+        Set<Long> allowedKpiIds = scheme.getKpis().stream()
+                .filter(r -> !r.isArchived())
+                .map(SchemeKpiRule::getKpiId)
+                .collect(Collectors.toSet());
 
-        // Build lookup by itemId
-        java.util.Map<Long, KpiSchemeItem> itemById = schemeItems.stream()
-                .collect(java.util.stream.Collectors.toMap(KpiSchemeItem::getId, x -> x));
+        // Build allowed Critical ids from scheme rules
+        Set<Long> allowedCriticalIds = scheme.getCriticals().stream()
+                .filter(r -> !r.isArchived())
+                .map(SchemeCriticalRule::getCriticalId)
+                .collect(Collectors.toSet());
 
-        // Validate required items present + validate score ranges
-        java.util.Set<Long> providedItemIds = request.getKpis().stream()
-                .map(com.mihai.overview.request.ReviewKpiScoreRequest::getSchemeItemId)
-                .collect(java.util.stream.Collectors.toSet());
-
-        for (KpiSchemeItem item : schemeItems) {
-            if (item.isRequired() && !providedItemIds.contains(item.getId())) {
-                throw new IllegalArgumentException("Missing required KPI: " + item.getKpi().getName());
+        // Validate provided KPI scores: must match scheme membership, no duplicates
+        Set<Long> seenKpis = new HashSet<>();
+        for (CreateReviewRequest.KpiScoreInput s : request.getKpiScores()) {
+            if (!seenKpis.add(s.getKpiId())) {
+                throw new IllegalArgumentException("Duplicate KPI score entry: " + s.getKpiId());
+            }
+            if (!allowedKpiIds.contains(s.getKpiId())) {
+                throw new IllegalArgumentException("KPI not part of scheme: " + s.getKpiId());
             }
         }
 
-        double total = 0.0;
-
-        for (com.mihai.overview.request.ReviewKpiScoreRequest input : request.getKpis()) {
-            KpiSchemeItem item = itemById.get(input.getSchemeItemId());
-            if (item == null) {
-                throw new IllegalArgumentException("Scheme item not part of active scheme: " + input.getSchemeItemId());
+        // Validate provided critical hits: must match scheme membership, no duplicates
+        Set<Long> seenCriticals = new HashSet<>();
+        for (CreateReviewRequest.CriticalHitInput h : request.getCriticalHits()) {
+            if (!seenCriticals.add(h.getCriticalId())) {
+                throw new IllegalArgumentException("Duplicate critical entry: " + h.getCriticalId());
             }
-
-            int score = input.getScore();
-            if (score < item.getMinScore() || score > item.getMaxScore()) {
-                throw new IllegalArgumentException(
-                        "Score out of range for KPI " + item.getKpi().getName()
-                                + ". Allowed: " + item.getMinScore() + " to " + item.getMaxScore()
-                                + ", got: " + score
-                );
+            if (!allowedCriticalIds.contains(h.getCriticalId())) {
+                throw new IllegalArgumentException("Critical not part of scheme: " + h.getCriticalId());
             }
-
-            // contribution = (score/max) * weightPercent
-            total += ((double) score / (double) item.getMaxScore()) * (double) item.getWeightPercent();
         }
 
-        int finalScore = (int) Math.round(total);
+        // Load pool KPIs for this type and map by id (weights come from pool)
+        List<KpiPoolItem> poolKpis = kpiPoolItemRepository.findByInteractionType_Id(type.getId());
+        Map<Long, KpiPoolItem> kpiById = poolKpis.stream()
+                .filter(k -> !k.isArchived())
+                .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
 
-        Review review = new Review(
-                type.getCode(),                 // keep your existing string field
-                request.getReviewedUserId(),
-                request.getTicketId(),
-                request.getInteractionDate(),
-                request.getInteractionTime(),
-                request.getCid(),
-                finalScore,                     // computed
-                false,
-                currentUser.getId()
-        );
-        review.setKpiScheme(activeScheme);
+        // Compute total score using: sum(score * weight) / 100
+        int weightedSum = 0;
+        int weightSum = 0;
 
-        Review savedReview = reviewRepository.save(review);
-
-        // Persist per-item scores
-        for (com.mihai.overview.request.ReviewKpiScoreRequest input : request.getKpis()) {
-            KpiSchemeItem item = itemById.get(input.getSchemeItemId());
-
-            com.mihai.overview.entity.ReviewKpiScore scoreRow = new com.mihai.overview.entity.ReviewKpiScore();
-            scoreRow.setReview(savedReview);
-            scoreRow.setSchemeItem(item);
-            scoreRow.setScore(input.getScore());
-
-            reviewKpiScoreRepository.save(scoreRow);
+        for (CreateReviewRequest.KpiScoreInput s : request.getKpiScores()) {
+            KpiPoolItem kpi = kpiById.get(s.getKpiId());
+            if (kpi == null) {
+                throw new IllegalStateException("Scheme references KPI not found/archived in pool: " + s.getKpiId());
+            }
+            int w = kpi.getWeightPercent();
+            weightedSum += s.getScore() * w;
+            weightSum += w;
         }
 
-        return new ReviewResponse(
-                savedReview.getId(),
-                savedReview.getTicketId(),
-                savedReview.getReviewedUserId(),
-                savedReview.getInteractionScore()
-        );
+        // Since scheme creation enforced weights == 100, this should be 100 if reviewer scored all scheme KPIs.
+        // If you allow partial scoring later, this logic will need adjustment.
+        if (weightSum != 100) {
+            throw new IllegalArgumentException("Review must include KPI scores whose weights sum to 100. Current: " + weightSum);
+        }
+
+        int totalScore = Math.round(weightedSum / 100.0f);
+        String periodKey = request.getOccurredAt().format(PERIOD_FMT);
+
+        Review review = new Review();
+        review.setScheme(scheme);
+        review.setInteractionType(type);
+        review.setReviewedUserId(request.getReviewedUserId());
+        review.setReviewerId(request.getReviewerId());
+        review.setTicketId(request.getTicketId());
+        review.setCid(request.getCid());
+        review.setOccurredAt(request.getOccurredAt());
+        review.setPeriodKey(periodKey);
+        review.setTotalScore(totalScore);
+        review.setAccepted(true);
+
+        // Attach KPI scores
+        for (CreateReviewRequest.KpiScoreInput s : request.getKpiScores()) {
+            ReviewKpiScore r = new ReviewKpiScore();
+            r.setReview(review);
+            r.setKpi(kpiById.get(s.getKpiId()));
+            r.setScore(s.getScore());
+            review.getKpiScores().add(r);
+        }
+
+        // Attach critical hits
+        // Load critical pool map for type
+        List<CriticalConditionPoolItem> poolCriticals = criticalPoolRepository.findByInteractionType_Id(type.getId());
+        Map<Long, CriticalConditionPoolItem> criticalById = poolCriticals.stream()
+                .filter(c -> !c.isArchived())
+                .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
+
+        for (CreateReviewRequest.CriticalHitInput h : request.getCriticalHits()) {
+            CriticalConditionPoolItem c = criticalById.get(h.getCriticalId());
+            if (c == null) {
+                throw new IllegalStateException("Scheme references Critical not found/archived in pool: " + h.getCriticalId());
+            }
+            ReviewCriticalHit hit = new ReviewCriticalHit();
+            hit.setReview(review);
+            hit.setCritical(c);
+            hit.setTriggered(h.isTriggered());
+            review.getCriticalHits().add(hit);
+        }
+
+        Review saved = reviewRepository.save(review);
+        return new ReviewResponse(saved.getId(), scheme.getId(), saved.getPeriodKey(), saved.getTotalScore());
     }
-
 }

@@ -1,14 +1,11 @@
 package com.mihai.overview.repository;
 
 import com.mihai.overview.entity.Review;
-import org.springframework.data.repository.CrudRepository;
-import org.springframework.stereotype.Repository;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-@Repository
-public interface ReviewRepository extends CrudRepository<Review, Long> {
-    List<Review> findByReviewerId (Long reviewerId);
-    List<Review> findByReviewedUserId (Long reviewedUserId);
-    boolean existsByKpiScheme_Id(Long schemeId);
+public interface ReviewRepository extends JpaRepository<Review, Long> {
+    List<Review> findByReviewedUserIdAndPeriodKey(Long reviewedUserId, String periodKey);
+    boolean existsByScheme_Id(Long schemeId);
 }

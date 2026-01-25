@@ -9,13 +9,13 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 @Entity
-@Table(name = "interaction_kpis",
+@Table(name = "critical_condition_pool_items",
         indexes = {
-                @Index(name = "ix_kpis_review_type", columnList = "review_type_id"),
-                @Index(name = "ix_kpis_name", columnList = "name")
+                @Index(name = "ix_critical_pool_type", columnList = "interaction_type_id"),
+                @Index(name = "ix_critical_pool_name", columnList = "name")
         }
 )
-public class InteractionKpi {
+public class CriticalConditionPoolItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,17 +23,14 @@ public class InteractionKpi {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "review_type_id", nullable = false)
-    private ReviewType reviewType;
+    @JoinColumn(name = "interaction_type_id", nullable = false)
+    private InteractionType interactionType;
 
-    @Column(nullable = false, length = 100)
-    private String name; // e.g. clarity, tone
+    @Column(nullable = false, length = 120)
+    private String name;
 
     @Column(nullable = false, length = 500)
     private String description;
-
-    @Column(nullable = false)
-    private boolean active = true;
 
     @Column(name = "created_by_user_id")
     private Long createdByUserId;

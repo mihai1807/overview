@@ -5,9 +5,8 @@ import lombok.Getter;
 
 @AllArgsConstructor
 @Getter
-public class ReviewResponse {
+public class SchemeResponse {
     private Long id;
-    private Long schemeId;
-    private String periodKey;
-    private int totalScore;
+    private Long interactionTypeId;
+    private String name;
 }

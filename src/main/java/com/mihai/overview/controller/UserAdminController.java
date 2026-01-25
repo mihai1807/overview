@@ -3,6 +3,7 @@ package com.mihai.overview.controller;
 import com.mihai.overview.entity.User;
 import com.mihai.overview.request.PromoteUserRequest;
 import com.mihai.overview.service.UserAdminService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -11,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @AllArgsConstructor
 @RestController
+@Tag(name = "User Admin REST API Endpoints", description = "Operations related to updating roles and admin access.")
 @RequestMapping("/api/admin/users")
 public class UserAdminController {
 
