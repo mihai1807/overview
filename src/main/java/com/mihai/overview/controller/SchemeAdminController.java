@@ -18,12 +18,12 @@ public class SchemeAdminController {
 
     private final SchemeAdminService schemeAdminService;
 
-    @PostMapping("/interaction-types/{interactionTypeId}")
+    @PostMapping("/interaction-types/{code}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<SchemeResponse> createScheme(
-            @PathVariable Long interactionTypeId,
+            @PathVariable String code,
             @Valid @RequestBody CreateSchemeRequest request
     ) {
-        return ResponseEntity.ok(schemeAdminService.createScheme(interactionTypeId, request));
+        return ResponseEntity.ok(schemeAdminService.createScheme(code, request));
     }
 }

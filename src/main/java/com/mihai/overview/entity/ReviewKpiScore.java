@@ -31,6 +31,6 @@ public class ReviewKpiScore {
     @JoinColumn(name = "kpi_id", nullable = false)
     private KpiPoolItem kpi;
 
-    @Column(nullable = false)
-    private int score; // 0..100
+    @Column(nullable = true)
+    private Integer score; // null until filled, then 0..100
 }

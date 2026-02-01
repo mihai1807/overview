@@ -23,22 +23,38 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
 
     @Override
     @Transactional
-    public SchemeResponse createScheme(Long interactionTypeId, CreateSchemeRequest request) {
+    public SchemeResponse createScheme(String code, CreateSchemeRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
-        InteractionType type = interactionTypeRepository.findById(interactionTypeId)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + interactionTypeId));
+        if (code == null || code.trim().isEmpty()) {
+            throw new IllegalArgumentException("InteractionType code is mandatory");
+        }
+
+        String normalizedCode = code.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(normalizedCode)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + normalizedCode));
 
         if (type.isArchived()) {
             throw new IllegalArgumentException("InteractionType is archived");
         }
 
-        // Validate KPI selection: same type, not archived, no duplicates
+        // --- KPIs ---
+        List<CreateSchemeRequest.SchemeKpiInput> kpiInputs =
+                request.getKpis() == null ? Collections.emptyList() : request.getKpis();
+
         Set<Long> kpiIds = new HashSet<>();
         int weightSum = 0;
 
         List<SchemeKpiRule> schemeKpis = new ArrayList<>();
-        for (CreateSchemeRequest.SchemeKpiInput in : request.getKpis()) {
+        for (CreateSchemeRequest.SchemeKpiInput in : kpiInputs) {
+            if (in == null) {
+                throw new IllegalArgumentException("KPI input cannot be null");
+            }
+            if (in.getKpiId() == null) {
+                throw new IllegalArgumentException("KPI id is mandatory");
+            }
+
             if (!kpiIds.add(in.getKpiId())) {
                 throw new IllegalArgumentException("Duplicate KPI id in scheme: " + in.getKpiId());
             }
@@ -65,10 +81,20 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
             throw new IllegalArgumentException("Scheme KPI weights must sum to 100. Current: " + weightSum);
         }
 
-        // Validate critical selection: same type, not archived, no duplicates
+        // --- Criticals ---
+        List<CreateSchemeRequest.SchemeCriticalInput> criticalInputs =
+                request.getCriticals() == null ? Collections.emptyList() : request.getCriticals();
+
         Set<Long> criticalIds = new HashSet<>();
         List<SchemeCriticalRule> schemeCriticals = new ArrayList<>();
-        for (CreateSchemeRequest.SchemeCriticalInput in : request.getCriticals()) {
+        for (CreateSchemeRequest.SchemeCriticalInput in : criticalInputs) {
+            if (in == null) {
+                throw new IllegalArgumentException("Critical input cannot be null");
+            }
+            if (in.getCriticalId() == null) {
+                throw new IllegalArgumentException("Critical id is mandatory");
+            }
+
             if (!criticalIds.add(in.getCriticalId())) {
                 throw new IllegalArgumentException("Duplicate critical id in scheme: " + in.getCriticalId());
             }
@@ -84,6 +110,11 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
             }
 
             schemeCriticals.add(new SchemeCriticalRule(c.getId(), in.getOrderIndex(), false));
+        }
+
+        // --- Create scheme ---
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new IllegalArgumentException("Scheme name is mandatory");
         }
 
         Scheme scheme = new Scheme();

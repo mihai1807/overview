@@ -8,6 +8,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
+import java.time.Instant;
 
 @Getter
 @Setter
@@ -58,8 +59,15 @@ public class Review {
     @Column(name = "total_score", nullable = false)
     private int totalScore; // 0..100
 
-    @Column(nullable = false)
-    private boolean accepted = true;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 10)
+    private ReviewStatus status = ReviewStatus.DRAFT;
+
+    @Column(name = "finalized_at")
+    private Instant finalizedAt;
+
+    @Column(name = "finalized_by_user_id")
+    private Long finalizedByUserId;
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<ReviewKpiScore> kpiScores = new HashSet<>();
