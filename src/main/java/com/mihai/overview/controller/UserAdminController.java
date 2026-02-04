@@ -58,4 +58,12 @@ public class UserAdminController {
         );
     }
 
+    @DeleteMapping("/{userId}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> disableUser(@PathVariable Long userId) {
+        userAdminService.disableUser(userId);
+        return ResponseEntity.noContent().build();
+    }
+
+
 }

@@ -27,12 +27,12 @@ public class UserController {
         return userService.getUserInfo();
     }
 
-    @Operation (summary = "Delete user", description = "Delete current user account")
+/*    @Operation (summary = "Delete user", description = "Delete current user account")
     @ResponseStatus(HttpStatus.OK)
     @DeleteMapping
     public void deleteUser() {
         userService.deleteUser();
-    }
+    }*/
 
     @Operation (summary = "Password update", description = "Change user password after verification")
     @ResponseStatus(HttpStatus.OK)

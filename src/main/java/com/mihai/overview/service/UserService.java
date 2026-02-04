@@ -6,6 +6,6 @@ import com.mihai.overview.response.UserResponse;
 
 public interface UserService {
     UserResponse getUserInfo();
-    void deleteUser();
+    //void deleteUser();
     void updatePassword(PasswordUpdateRequest passwordUpdateRequest);
 }

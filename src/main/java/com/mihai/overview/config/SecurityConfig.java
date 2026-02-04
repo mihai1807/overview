@@ -1,5 +1,7 @@
 package com.mihai.overview.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mihai.overview.exception.ExceptionResponses;
 import com.mihai.overview.repository.UserRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,6 +18,8 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @EnableMethodSecurity
@@ -25,6 +29,9 @@ public class SecurityConfig {
 
     private final UserRepository userRepository;
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+
+    // Use ONE mapper instance for consistent JSON output in these handlers
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public SecurityConfig(UserRepository userRepository, JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.userRepository = userRepository;
@@ -52,37 +59,84 @@ public class SecurityConfig {
         return (request, response, ex) -> {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
             response.setHeader("WWW-Authenticate", "");
-            response.getWriter().write("{\"error\": \"Unauthorized access\"}");
+
+            ExceptionResponses body = new ExceptionResponses(
+                    HttpStatus.UNAUTHORIZED.value(),
+                    "Unauthorized access",
+                    System.currentTimeMillis()
+            );
+
+            response.getWriter().write(objectMapper.writeValueAsString(body));
+        };
+    }
+
+    @Bean
+    public AccessDeniedHandler accessDeniedHandler() {
+        return (request, response, ex) -> {
+            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+
+            String message;
+            if ("/api/auth/register".equals(request.getRequestURI())) {
+                message = "You cannot register a new user while you are logged in. Log out and register your own account.";
+            } else {
+                message = "Access denied.";
+            }
+
+            ExceptionResponses body = new ExceptionResponses(
+                    HttpStatus.FORBIDDEN.value(),
+                    message,
+                    System.currentTimeMillis()
+            );
+
+            response.getWriter().write(objectMapper.writeValueAsString(body));
         };
     }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.authorizeHttpRequests(configurer ->
-                configurer
-                        .requestMatchers(
-                                "/api/auth", "/api/auth/**",
-                                "/docs", "/docs/**",
-                                "/swagger-ui/**", "/v3/api-docs/**",
-                                "/swagger-resources/**", "/webjars/**")
-                        .permitAll()
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .anyRequest().authenticated()
-        );
 
         http.csrf(csrf -> csrf.disable());
 
-        http.exceptionHandling(exceptionHandling ->
-                exceptionHandling
-                        .authenticationEntryPoint(authenticationEntryPoint()));
-
         http.sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+
+        http.exceptionHandling(exceptionHandling ->
+                exceptionHandling
+                        .authenticationEntryPoint(authenticationEntryPoint())
+                        .accessDeniedHandler(accessDeniedHandler())
+        );
+
+        http.authorizeHttpRequests(auth -> auth
+                // REGISTER — only when NOT authenticated (anonymous-only)
+                .requestMatchers("/api/auth/register")
+                .access(new WebExpressionAuthorizationManager("isAnonymous()"))
+
+                // LOGIN — open
+                .requestMatchers("/api/auth/login").permitAll()
+
+                // DOCS / SWAGGER — open
+                .requestMatchers(
+                        "/docs", "/docs/**",
+                        "/swagger-ui/**", "/v3/api-docs/**",
+                        "/swagger-resources/**", "/webjars/**"
+                ).permitAll()
+
+                        // ADMIN endpoints
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+                        // Hard block: nobody can delete themselves
+                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/users").denyAll()
+
+                        .anyRequest().authenticated()
+
+        );
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
-
 }

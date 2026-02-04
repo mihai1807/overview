@@ -38,7 +38,7 @@ public class UserServiceImpl implements UserService {
         );
     }
 
-    @Override
+/*    @Override
     public void deleteUser() {
         User user = findAuthenticatedUser.getAuthenticatedUser();
 
@@ -47,7 +47,7 @@ public class UserServiceImpl implements UserService {
         }
 
         userRepository.delete(user);
-    }
+    }*/
 
     @Transactional
     @Override

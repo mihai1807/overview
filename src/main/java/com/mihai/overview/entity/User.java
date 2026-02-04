@@ -46,16 +46,16 @@ public class User implements UserDetails {
     @Column(nullable = false, name = "updated_at")
     private Instant updatedAt;
 
+    // ✅ Soft delete / disable flag
+    @Column(nullable = false)
+    private boolean enabled = true;
+
+    @Column(name = "disabled_at")
+    private Instant disabledAt;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "user_authorities", joinColumns = @JoinColumn(name = "user_id"))
     private List<Authority> authorities;
-
-/*    @OneToMany(mappedBy = "reviewer")
-    private List<Review> reviewsWritten;
-
-    @OneToMany(mappedBy = "reviewedUser")
-    private List<Review> reviewsReceived;*/
-
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -91,8 +91,9 @@ public class User implements UserDetails {
         return UserDetails.super.isCredentialsNonExpired();
     }
 
+    // ✅ This is the key: Spring Security will block login if false
     @Override
     public boolean isEnabled() {
-        return UserDetails.super.isEnabled();
+        return enabled;
     }
 }

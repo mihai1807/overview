@@ -1,14 +1,18 @@
 package com.mihai.overview.service;
 
+import com.mihai.overview.config.AppRole;
 import com.mihai.overview.entity.Authority;
 import com.mihai.overview.entity.User;
 import com.mihai.overview.repository.UserRepository;
 import com.mihai.overview.request.PromoteUserRequest;
-import com.mihai.overview.config.AppRole;
+import com.mihai.overview.util.FindAuthenticatedUser;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -17,6 +21,7 @@ import java.util.List;
 public class UserAdminServiceImpl implements UserAdminService {
 
     private final UserRepository userRepository;
+    private final FindAuthenticatedUser findAuthenticatedUser;
 
     @Override
     @Transactional
@@ -30,7 +35,6 @@ public class UserAdminServiceImpl implements UserAdminService {
         boolean isAdmin = user.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
 
-        // Build new authorities: one primary role + keep ROLE_ADMIN if already present
         List<Authority> updated = new ArrayList<>();
         updated.add(new Authority(targetAuthority));
         if (isAdmin && !"ROLE_ADMIN".equals(targetAuthority)) {
@@ -69,7 +73,6 @@ public class UserAdminServiceImpl implements UserAdminService {
         boolean isAdmin = user.getAuthorities().stream()
                 .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
 
-        // Not an admin -> nothing to revoke (return as-is)
         if (!isAdmin) {
             return user;
         }
@@ -92,10 +95,42 @@ public class UserAdminServiceImpl implements UserAdminService {
         return userRepository.save(user);
     }
 
-    private List<Authority> authorityEntities(User user) {
-        return user.getAuthorities().stream()
-                .map(a -> (Authority) a)   // safe in your project because you only store Authority
-                .toList();
+    // ✅ NEW: soft delete / disable user (admin-only at controller level)
+    @Override
+    @Transactional
+    public void disableUser(Long userId) {
+        User actingAdmin = findAuthenticatedUser.getAuthenticatedUser();
+
+        if (actingAdmin.getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot disable your own account");
+        }
+
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
+
+        boolean targetIsAdmin = target.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+
+        if (targetIsAdmin) {
+            long adminCount = userRepository.countUsersWithAuthority("ROLE_ADMIN");
+            if (adminCount <= 1) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot disable the last admin");
+            }
+        }
+
+        // idempotent: if already disabled, keep as-is
+        if (!target.isEnabled()) {
+            return;
+        }
+
+        target.setEnabled(false);
+        target.setDisabledAt(Instant.now());
+        userRepository.save(target);
     }
 
+    private List<Authority> authorityEntities(User user) {
+        return user.getAuthorities().stream()
+                .map(a -> (Authority) a)
+                .toList();
+    }
 }

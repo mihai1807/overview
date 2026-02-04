@@ -7,4 +7,7 @@ public interface UserAdminService {
     User promoteUser(Long userId, PromoteUserRequest request);
     User grantAdmin(Long userId);
     User revokeAdmin(Long userId);
+
+    // ✅ NEW: soft delete
+    void disableUser(Long userId);
 }
