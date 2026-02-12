@@ -18,9 +18,11 @@ import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 @AllArgsConstructor
-public class AdminConfigServiceImpl implements AdminConfigService {
+public class ReviewConfigServiceImpl implements ReviewConfigService {
 
     private final InteractionTypeRepository interactionTypeRepository;
     private final KpiPoolItemRepository kpiPoolItemRepository;
@@ -104,6 +106,52 @@ public class AdminConfigServiceImpl implements AdminConfigService {
 
         CriticalConditionPoolItem saved = criticalPoolRepository.save(c);
         return new CriticalConditionPoolItemResponse(saved.getId(), type.getId(), saved.getName(), saved.getDescription());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<InteractionTypeResponse> listInteractionTypes() {
+        return interactionTypeRepository.findAllByArchivedFalseOrderByCodeAsc().stream()
+                .map(it -> new InteractionTypeResponse(it.getId(), it.getCode(), it.getName()))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode) {
+        String code = interactionTypeCode.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+
+        return kpiPoolItemRepository.findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(type.getId()).stream()
+                .map(k -> new KpiPoolItemResponse(
+                        k.getId(),
+                        type.getId(),
+                        k.getName(),
+                        k.getDescription(),
+                        k.getDetails(),
+                        k.getWeightPercent()
+                ))
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode) {
+        String code = interactionTypeCode.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+
+        return criticalPoolRepository.findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(type.getId()).stream()
+                .map(c -> new CriticalConditionPoolItemResponse(
+                        c.getId(),
+                        type.getId(),
+                        c.getName(),
+                        c.getDescription()
+                ))
+                .toList();
     }
 
     private User find_authenticated() {

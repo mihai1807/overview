@@ -125,7 +125,11 @@ public class SecurityConfig {
                         "/swagger-resources/**", "/webjars/**"
                 ).permitAll()
 
-                        // ADMIN endpoints
+                        // ✅ allow QA/TM/Admin for review config under /api/admin/review-config/**
+                        .requestMatchers("/api/admin/review-config/**")
+                        .hasAnyRole("ADMIN", "QUALITY_ANALYST", "TEAM_MANAGER")
+
+                        // ✅ all other admin endpoints remain ADMIN-only
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
                         // Hard block: nobody can delete themselves

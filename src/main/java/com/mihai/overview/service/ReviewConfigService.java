@@ -7,12 +7,20 @@ import com.mihai.overview.response.CriticalConditionPoolItemResponse;
 import com.mihai.overview.response.InteractionTypeResponse;
 import com.mihai.overview.response.KpiPoolItemResponse;
 
-public interface AdminConfigService {
+import java.util.List;
+
+public interface ReviewConfigService {
 
     InteractionTypeResponse createInteractionType(CreateInteractionTypeRequest request);
 
     KpiPoolItemResponse createKpiPoolItem(String interactionTypeCode, CreateKpiPoolItemRequest request);
 
     CriticalConditionPoolItemResponse createCriticalConditionPoolItem(String interactionTypeCode, CreateCriticalConditionPoolItemRequest request);
+
+    List<InteractionTypeResponse> listInteractionTypes();
+
+    List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode);
+
+    List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode);
 
 }

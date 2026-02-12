@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface KpiPoolItemRepository extends JpaRepository<KpiPoolItem, Long> {
     List<KpiPoolItem> findByInteractionType_Id(Long interactionTypeId);
+
+    List<KpiPoolItem> findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(Long interactionTypeId);
 }
