@@ -19,8 +19,15 @@ public interface ReviewConfigService {
 
     List<InteractionTypeResponse> listInteractionTypes();
 
-    List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode);
+    List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode, boolean includeArchived);
 
-    List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode);
+    List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode, boolean includeArchived);
+
+    void archiveKpiPoolItem(String interactionTypeCode, Long kpiId);
+    void unarchiveKpiPoolItem(String interactionTypeCode, Long kpiId);
+
+    void archiveCriticalPoolItem(String interactionTypeCode, Long criticalId);
+    void unarchiveCriticalPoolItem(String interactionTypeCode, Long criticalId);
+
 
 }

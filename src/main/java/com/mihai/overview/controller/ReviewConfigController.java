@@ -57,13 +57,48 @@ public class ReviewConfigController {
 
     @GetMapping("/interaction-types/{code}/kpi-pool")
     @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
-    public ResponseEntity<List<KpiPoolItemResponse>> listKpis(@PathVariable String code) {
-        return ResponseEntity.ok(reviewConfigService.listKpiPoolItems(code));
+    public ResponseEntity<List<KpiPoolItemResponse>> listKpis(
+            @PathVariable String code,
+            @RequestParam(defaultValue = "false") boolean includeArchived
+    ) {
+        return ResponseEntity.ok(reviewConfigService.listKpiPoolItems(code, includeArchived));
     }
 
     @GetMapping("/interaction-types/{code}/critical-pool")
     @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
-    public ResponseEntity<List<CriticalConditionPoolItemResponse>> listCriticals(@PathVariable String code) {
-        return ResponseEntity.ok(reviewConfigService.listCriticalConditionPoolItems(code));
+    public ResponseEntity<List<CriticalConditionPoolItemResponse>> listCriticals(
+            @PathVariable String code,
+            @RequestParam(defaultValue = "false") boolean includeArchived
+    ) {
+        return ResponseEntity.ok(reviewConfigService.listCriticalConditionPoolItems(code, includeArchived));
     }
+
+    @PatchMapping("/interaction-types/{code}/kpi-pool/{kpiId}/archive")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    public ResponseEntity<Void> archiveKpi(@PathVariable String code, @PathVariable Long kpiId) {
+        reviewConfigService.archiveKpiPoolItem(code, kpiId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/interaction-types/{code}/kpi-pool/{kpiId}/unarchive")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    public ResponseEntity<Void> unarchiveKpi(@PathVariable String code, @PathVariable Long kpiId) {
+        reviewConfigService.unarchiveKpiPoolItem(code, kpiId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/interaction-types/{code}/critical-pool/{criticalId}/archive")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    public ResponseEntity<Void> archiveCritical(@PathVariable String code, @PathVariable Long criticalId) {
+        reviewConfigService.archiveCriticalPoolItem(code, criticalId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/interaction-types/{code}/critical-pool/{criticalId}/unarchive")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    public ResponseEntity<Void> unarchiveCritical(@PathVariable String code, @PathVariable Long criticalId) {
+        reviewConfigService.unarchiveCriticalPoolItem(code, criticalId);
+        return ResponseEntity.noContent().build();
+    }
+
 }

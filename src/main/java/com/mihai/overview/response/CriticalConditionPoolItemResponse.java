@@ -10,4 +10,5 @@ public class CriticalConditionPoolItemResponse {
     private Long interactionTypeId;
     private String name;
     private String description;
+    private boolean archived;
 }

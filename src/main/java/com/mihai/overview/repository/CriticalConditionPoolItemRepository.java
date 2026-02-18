@@ -8,4 +8,8 @@ import java.util.List;
 public interface CriticalConditionPoolItemRepository extends JpaRepository<CriticalConditionPoolItem, Long> {
     List<CriticalConditionPoolItem> findByInteractionType_Id(Long interactionTypeId);
     List<CriticalConditionPoolItem> findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(Long interactionTypeId);
+    List<CriticalConditionPoolItem> findAllByInteractionTypeIdOrderByNameAsc(Long interactionTypeId);
+
+    java.util.Optional<CriticalConditionPoolItem> findByIdAndInteractionTypeId(Long id, Long interactionTypeId);
+
 }

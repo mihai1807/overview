@@ -58,7 +58,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .filter(r -> !r.isArchived())
                 .toList();
 
-        // For response enrichment (names/weights), reuse the same logic as config query: load pool by type
+        // Load ACTIVE pool items (archived pool items make scheme unusable for new reviews)
         Map<Long, KpiPoolItem> kpiById = kpiPoolItemRepository.findByInteractionType_Id(type.getId()).stream()
                 .filter(k -> !k.isArchived())
                 .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
@@ -67,15 +67,15 @@ public class ReviewServiceImpl implements ReviewService {
                 .filter(c -> !c.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
 
-        // Validate scheme references still exist in pools (fail fast if config is broken)
+        // Fail fast if scheme contains missing/archived pool references
         for (SchemeKpiRule r : schemeKpis) {
             if (!kpiById.containsKey(r.getKpiId())) {
-                throw new IllegalStateException("Scheme references missing/archived KPI: " + r.getKpiId());
+                throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + r.getKpiId());
             }
         }
         for (SchemeCriticalRule r : schemeCriticals) {
             if (!criticalById.containsKey(r.getCriticalId())) {
-                throw new IllegalStateException("Scheme references missing/archived Critical: " + r.getCriticalId());
+                throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
             }
         }
 
@@ -157,15 +157,15 @@ public class ReviewServiceImpl implements ReviewService {
                     expectedKpiIds.size() + ", provided: " + seen.size());
         }
 
-        // Pool KPIs map (weights)
+        // ACTIVE pool KPIs map (weights)
         Map<Long, KpiPoolItem> kpiById = kpiPoolItemRepository.findByInteractionType_Id(type.getId()).stream()
                 .filter(k -> !k.isArchived())
                 .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
 
-        // Validate scheme references still exist
+        // Validate scheme references still exist in ACTIVE pool
         for (Long id : expectedKpiIds) {
             if (!kpiById.containsKey(id)) {
-                throw new IllegalStateException("Scheme references missing/archived KPI: " + id);
+                throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + id);
             }
         }
 
@@ -177,8 +177,8 @@ public class ReviewServiceImpl implements ReviewService {
         for (UpdateReviewKpiScoresRequest.KpiScoreInput in : request.getKpiScores()) {
             ReviewKpiScore line = existingLines.get(in.getKpiId());
             if (line == null) {
-                // Should not happen if shell was created properly
-                throw new IllegalStateException("Review is missing KPI row for: " + in.getKpiId());
+                // Indicates inconsistent DB state; still returned as 400 via your global handler
+                throw new IllegalArgumentException("Review is missing KPI row for: " + in.getKpiId());
             }
             line.setScore(in.getScore());
         }
@@ -203,7 +203,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review saved = reviewRepository.save(review);
 
-        // Also need critical map for response
+        // For response enrichment (critical)
         List<SchemeCriticalRule> schemeCriticals = scheme.getCriticals().stream()
                 .filter(r -> !r.isArchived())
                 .toList();
@@ -263,7 +263,7 @@ public class ReviewServiceImpl implements ReviewService {
         for (Long id : allowedCriticalIds) {
             ReviewCriticalHit hit = hitByCriticalId.get(id);
             if (hit == null) {
-                throw new IllegalStateException("Review is missing Critical row for: " + id);
+                throw new IllegalArgumentException("Review is missing Critical row for: " + id);
             }
             hit.setTriggered(false);
         }
@@ -276,7 +276,7 @@ public class ReviewServiceImpl implements ReviewService {
 
         Review saved = reviewRepository.save(review);
 
-        // For response enrichment
+        // For response enrichment (active pools)
         List<SchemeKpiRule> schemeKpis = scheme.getKpis().stream()
                 .filter(r -> !r.isArchived())
                 .toList();
@@ -288,6 +288,13 @@ public class ReviewServiceImpl implements ReviewService {
         Map<Long, CriticalConditionPoolItem> criticalById = criticalPoolRepository.findByInteractionType_Id(type.getId()).stream()
                 .filter(c -> !c.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
+
+        // Optional extra safety: if scheme contains missing/archived pool criticals, fail here too
+        for (SchemeCriticalRule r : schemeCriticals) {
+            if (!criticalById.containsKey(r.getCriticalId())) {
+                throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
+            }
+        }
 
         return toDetailsResponse(saved, kpiById, criticalById, schemeKpis, schemeCriticals);
     }
@@ -343,6 +350,18 @@ public class ReviewServiceImpl implements ReviewService {
                 .filter(c -> !c.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
 
+        // Fail fast if scheme contains missing/archived pool references (consistent error)
+        for (SchemeKpiRule r : schemeKpis) {
+            if (!kpiById.containsKey(r.getKpiId())) {
+                throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + r.getKpiId());
+            }
+        }
+        for (SchemeCriticalRule r : schemeCriticals) {
+            if (!criticalById.containsKey(r.getCriticalId())) {
+                throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
+            }
+        }
+
         return toDetailsResponse(saved, kpiById, criticalById, schemeKpis, schemeCriticals);
     }
 
@@ -365,16 +384,15 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(r -> {
                     KpiPoolItem kpi = kpiById.get(r.getKpiId());
                     if (kpi == null) {
-                        throw new IllegalStateException("Scheme references missing/archived KPI: " + r.getKpiId());
+                        throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + r.getKpiId());
                     }
 
                     // Find review line for score (may be null)
                     Integer score = review.getKpiScores().stream()
                             .filter(l -> l.getKpi().getId().equals(kpi.getId()))
                             .findFirst()
-                            .map(ReviewKpiScore::getScore)   // Optional.map uses ofNullable internally
+                            .map(ReviewKpiScore::getScore)
                             .orElse(null);
-
 
                     return new ReviewDetailsResponse.KpiLine(
                             kpi.getId(),
@@ -392,7 +410,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .map(r -> {
                     CriticalConditionPoolItem c = criticalById.get(r.getCriticalId());
                     if (c == null) {
-                        throw new IllegalStateException("Scheme references missing/archived Critical: " + r.getCriticalId());
+                        throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
                     }
 
                     boolean triggered = review.getCriticalHits().stream()

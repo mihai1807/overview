@@ -79,7 +79,8 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
                 saved.getName(),
                 saved.getDescription(),
                 saved.getDetails(),
-                saved.getWeightPercent()
+                saved.getWeightPercent(),
+                saved.isArchived()
         );
     }
 
@@ -105,7 +106,7 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
         c.setArchived(false);
 
         CriticalConditionPoolItem saved = criticalPoolRepository.save(c);
-        return new CriticalConditionPoolItemResponse(saved.getId(), type.getId(), saved.getName(), saved.getDescription());
+        return new CriticalConditionPoolItemResponse(saved.getId(), type.getId(), saved.getName(), saved.getDescription(), saved.isArchived());
     }
 
     @Override
@@ -118,41 +119,111 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode) {
+    public List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode, boolean includeArchived) {
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
 
-        return kpiPoolItemRepository.findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(type.getId()).stream()
+        List<KpiPoolItem> items = includeArchived
+                ? kpiPoolItemRepository.findAllByInteractionTypeIdOrderByNameAsc(type.getId())
+                : kpiPoolItemRepository.findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(type.getId());
+
+        return items.stream()
                 .map(k -> new KpiPoolItemResponse(
                         k.getId(),
                         type.getId(),
                         k.getName(),
                         k.getDescription(),
                         k.getDetails(),
-                        k.getWeightPercent()
+                        k.getWeightPercent(),
+                        k.isArchived()
                 ))
                 .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode) {
+    public List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode, boolean includeArchived) {
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
                 .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
 
-        return criticalPoolRepository.findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(type.getId()).stream()
+        List<CriticalConditionPoolItem> items = includeArchived
+                ? criticalPoolRepository.findAllByInteractionTypeIdOrderByNameAsc(type.getId())
+                : criticalPoolRepository.findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(type.getId());
+
+        return items.stream()
                 .map(c -> new CriticalConditionPoolItemResponse(
                         c.getId(),
                         type.getId(),
                         c.getName(),
-                        c.getDescription()
+                        c.getDescription(),
+                        c.isArchived()
                 ))
                 .toList();
     }
+
+
+    @Override
+    @Transactional
+    public void archiveKpiPoolItem(String interactionTypeCode, Long kpiId) {
+        String code = interactionTypeCode.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+
+        KpiPoolItem item = kpiPoolItemRepository.findByIdAndInteractionTypeId(kpiId, type.getId())
+                .orElseThrow(() -> new IllegalArgumentException("KPI not found for InteractionType: " + code));
+
+        item.setArchived(true);
+    }
+
+    @Override
+    @Transactional
+    public void unarchiveKpiPoolItem(String interactionTypeCode, Long kpiId) {
+        String code = interactionTypeCode.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+
+        KpiPoolItem item = kpiPoolItemRepository.findByIdAndInteractionTypeId(kpiId, type.getId())
+                .orElseThrow(() -> new IllegalArgumentException("KPI not found for InteractionType: " + code));
+
+        item.setArchived(false);
+    }
+
+    @Override
+    @Transactional
+    public void archiveCriticalPoolItem(String interactionTypeCode, Long criticalId) {
+        String code = interactionTypeCode.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+
+        CriticalConditionPoolItem item = criticalPoolRepository.findByIdAndInteractionTypeId(criticalId, type.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Critical not found for InteractionType: " + code));
+
+        item.setArchived(true);
+    }
+
+    @Override
+    @Transactional
+    public void unarchiveCriticalPoolItem(String interactionTypeCode, Long criticalId) {
+        String code = interactionTypeCode.trim().toUpperCase();
+
+        InteractionType type = interactionTypeRepository.findByCode(code)
+                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+
+        CriticalConditionPoolItem item = criticalPoolRepository.findByIdAndInteractionTypeId(criticalId, type.getId())
+                .orElseThrow(() -> new IllegalArgumentException("Critical not found for InteractionType: " + code));
+
+        item.setArchived(false);
+    }
+
+
+
 
     private User find_authenticated() {
         return findAuthenticatedUser.getAuthenticatedUser();

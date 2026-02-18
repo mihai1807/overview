@@ -12,4 +12,5 @@ public class KpiPoolItemResponse {
     private String description;
     private String details;
     private int weightPercent;
+    private boolean archived;
 }

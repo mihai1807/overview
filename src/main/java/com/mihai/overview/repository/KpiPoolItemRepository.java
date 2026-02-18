@@ -9,4 +9,9 @@ public interface KpiPoolItemRepository extends JpaRepository<KpiPoolItem, Long> 
     List<KpiPoolItem> findByInteractionType_Id(Long interactionTypeId);
 
     List<KpiPoolItem> findAllByInteractionTypeIdAndArchivedFalseOrderByNameAsc(Long interactionTypeId);
+
+    List<KpiPoolItem> findAllByInteractionTypeIdOrderByNameAsc(Long interactionTypeId);
+
+    java.util.Optional<KpiPoolItem> findByIdAndInteractionTypeId(Long id, Long interactionTypeId);
+
 }
