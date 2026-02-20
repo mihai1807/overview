@@ -9,6 +9,7 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpStatus;
 
 @AllArgsConstructor
 @RestController
@@ -26,4 +27,28 @@ public class SchemeAdminController {
     ) {
         return ResponseEntity.ok(schemeAdminService.createScheme(code, request));
     }
+
+    @GetMapping("/interaction-types/{code}")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    public ResponseEntity<java.util.List<com.mihai.overview.response.SchemeListItemStatusResponse>> listSchemes(
+            @PathVariable String code,
+            @RequestParam(defaultValue = "false") boolean includeArchived
+    ) {
+        return ResponseEntity.ok(schemeAdminService.listSchemesByInteractionType(code, includeArchived));
+    }
+
+    @PatchMapping("/{schemeId}/archive")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void archiveScheme(@PathVariable Long schemeId) {
+        schemeAdminService.archiveScheme(schemeId);
+    }
+
+    @PatchMapping("/{schemeId}/unarchive")
+    @PreAuthorize("hasAnyRole('ADMIN','QUALITY_ANALYST','TEAM_MANAGER')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void unarchiveScheme(@PathVariable Long schemeId) {
+        schemeAdminService.unarchiveScheme(schemeId);
+    }
+
 }

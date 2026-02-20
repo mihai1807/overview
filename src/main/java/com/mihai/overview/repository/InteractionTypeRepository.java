@@ -11,4 +11,6 @@ public interface InteractionTypeRepository extends JpaRepository<InteractionType
     Optional<InteractionType> findByCode(String code);
 
     List<InteractionType> findAllByArchivedFalseOrderByCodeAsc();
+
+    boolean existsByCode(String code);
 }
