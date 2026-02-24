@@ -125,18 +125,21 @@ public class SecurityConfig {
                         "/swagger-resources/**", "/webjars/**"
                 ).permitAll()
 
-                        // ✅ allow QA/TM/Admin for review config under /api/admin/review-config/**
-                        .requestMatchers("/api/admin/review-config/**")
-                        .hasAnyRole("ADMIN", "QUALITY_ANALYST", "TEAM_MANAGER")
+                // ✅ allow QA/TM/Admin for review config under /api/admin/review-config/**
+                .requestMatchers("/api/admin/review-config/**")
+                .hasAnyRole("ADMIN", "QUALITY_ANALYST", "TEAM_MANAGER")
 
-                        // ✅ all other admin endpoints remain ADMIN-only
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                // ✅ allow QA/TM/Admin for scheme endpoints
+                .requestMatchers("/api/admin/schemes/**")
+                .hasAnyRole("ADMIN", "QUALITY_ANALYST", "TEAM_MANAGER")
 
-                        // Hard block: nobody can delete themselves
-                        .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/users").denyAll()
+                // ✅ all other admin endpoints remain ADMIN-only
+                .requestMatchers("/api/admin/**").hasRole("ADMIN")
 
-                        .anyRequest().authenticated()
+                // Hard block: nobody can delete themselves
+                .requestMatchers(org.springframework.http.HttpMethod.DELETE, "/api/users").denyAll()
 
+                .anyRequest().authenticated()
         );
 
         http.addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

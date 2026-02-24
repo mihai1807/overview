@@ -3,6 +3,7 @@ package com.mihai.overview.service;
 import com.mihai.overview.entity.*;
 import com.mihai.overview.repository.*;
 import com.mihai.overview.request.CreateSchemeRequest;
+import com.mihai.overview.response.SchemeDetailsResponse;
 import com.mihai.overview.response.SchemeListItemStatusResponse;
 import com.mihai.overview.response.SchemeResponse;
 import com.mihai.overview.util.FindAuthenticatedUser;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @AllArgsConstructor
@@ -144,7 +146,6 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
 
         String normalizedCode = code.trim().toUpperCase();
 
-        // production-grade: unknown interaction type -> 404
         InteractionType type = interactionTypeRepository.findByCode(normalizedCode)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
@@ -193,7 +194,6 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
             return false;
         }
 
-        // Requirement: for NEW reviews, scheme must have no archived rules
         boolean hasAnyArchivedRule =
                 scheme.getKpis().stream().anyMatch(SchemeKpiRule::isArchived) ||
                         scheme.getCriticals().stream().anyMatch(SchemeCriticalRule::isArchived);
@@ -232,6 +232,85 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
         return true;
     }
 
+    // ✅ MOVED from ConfigQueryServiceImpl, now supports includeArchived
+    @Override
+    @Transactional(readOnly = true)
+    public SchemeDetailsResponse getSchemeDetails(Long schemeId, boolean includeArchived) {
+        if (schemeId == null || schemeId < 1) {
+            throw new IllegalArgumentException("schemeId must be positive");
+        }
+
+        Scheme scheme = schemeRepository.findById(schemeId)
+                .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + schemeId));
+
+        if (scheme.isArchived() && !includeArchived) {
+            throw new IllegalArgumentException("Scheme is archived");
+        }
+
+        InteractionType type = scheme.getInteractionType();
+
+        List<KpiPoolItem> kpis = kpiPoolItemRepository.findByInteractionType_Id(type.getId());
+        Map<Long, KpiPoolItem> kpiById = kpis.stream()
+                .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
+
+        List<CriticalConditionPoolItem> criticals = criticalPoolRepository.findByInteractionType_Id(type.getId());
+        Map<Long, CriticalConditionPoolItem> criticalById = criticals.stream()
+                .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
+
+        Stream<SchemeKpiRule> kpiRuleStream = scheme.getKpis().stream();
+        if (!includeArchived) {
+            kpiRuleStream = kpiRuleStream.filter(r -> !r.isArchived());
+        }
+
+        List<SchemeDetailsResponse.KpiInScheme> kpiResponses = kpiRuleStream
+                .sorted(Comparator.comparingInt(SchemeKpiRule::getOrderIndex))
+                .map(r -> {
+                    KpiPoolItem kpi = kpiById.get(r.getKpiId());
+                    if (kpi == null || kpi.isArchived()) {
+                        throw new IllegalStateException("Scheme references missing/archived KPI: " + r.getKpiId());
+                    }
+                    return new SchemeDetailsResponse.KpiInScheme(
+                            kpi.getId(),
+                            kpi.getName(),
+                            kpi.getDescription(),
+                            kpi.getDetails(),
+                            kpi.getWeightPercent(),
+                            r.getOrderIndex(),
+                            r.isRequired()
+                    );
+                })
+                .toList();
+
+        Stream<SchemeCriticalRule> criticalRuleStream = scheme.getCriticals().stream();
+        if (!includeArchived) {
+            criticalRuleStream = criticalRuleStream.filter(r -> !r.isArchived());
+        }
+
+        List<SchemeDetailsResponse.CriticalInScheme> criticalResponses = criticalRuleStream
+                .sorted(Comparator.comparingInt(SchemeCriticalRule::getOrderIndex))
+                .map(r -> {
+                    CriticalConditionPoolItem c = criticalById.get(r.getCriticalId());
+                    if (c == null || c.isArchived()) {
+                        throw new IllegalStateException("Scheme references missing/archived Critical: " + r.getCriticalId());
+                    }
+                    return new SchemeDetailsResponse.CriticalInScheme(
+                            c.getId(),
+                            c.getName(),
+                            c.getDescription(),
+                            r.getOrderIndex()
+                    );
+                })
+                .toList();
+
+        return new SchemeDetailsResponse(
+                scheme.getId(),
+                scheme.getName(),
+                type.getCode(),
+                kpiResponses,
+                criticalResponses
+        );
+    }
+
     @Override
     @Transactional
     public void archiveScheme(Long schemeId) {
@@ -243,7 +322,7 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + schemeId));
 
         if (scheme.isArchived()) {
-            return; // idempotent
+            return;
         }
 
         scheme.setArchived(true);
@@ -261,11 +340,10 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
                 .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + schemeId));
 
         if (!scheme.isArchived()) {
-            return; // idempotent
+            return;
         }
 
         scheme.setArchived(false);
         schemeRepository.save(scheme);
     }
-
 }
