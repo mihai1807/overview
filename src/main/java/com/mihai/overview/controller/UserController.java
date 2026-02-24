@@ -32,11 +32,10 @@ public class UserController {
     }
 
 
-    @Operation (summary = "Password update", description = "Change user password after verification")
+    @Operation(summary = "Password update", description = "Change current user's password after verifying the old password")
     @ResponseStatus(HttpStatus.OK)
-    @PutMapping("/password")
-    public void passwordUpdate(@Valid @RequestBody PasswordUpdateRequest passwordUpdateRequest)
-            throws Exception {
+    @PatchMapping("/password")
+    public void passwordUpdate(@Valid @RequestBody PasswordUpdateRequest passwordUpdateRequest) {
         userService.updatePassword(passwordUpdateRequest);
     }
 
