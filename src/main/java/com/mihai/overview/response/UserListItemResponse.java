@@ -1,6 +1,5 @@
 package com.mihai.overview.response;
 
-import com.mihai.overview.entity.Authority;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
@@ -11,14 +10,20 @@ import java.util.List;
 @AllArgsConstructor
 @Getter
 @Setter
-public class UserResponse {
+public class UserListItemResponse {
 
     private Long id;
+    private String firstName;
+    private String lastName;
     private String fullName;
     private String email;
-    private List<Authority> authorities;
 
-    // ✅ NEW
+    // store role strings to avoid leaking embeddable/entity shape
+    private List<String> authorities;
+
     private boolean enabled;
     private Instant disabledAt;
+
+    private Instant createdAt;
+    private Instant updatedAt;
 }

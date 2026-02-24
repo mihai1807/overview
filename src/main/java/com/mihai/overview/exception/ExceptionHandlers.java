@@ -14,15 +14,15 @@ public class ExceptionHandlers {
     private static final Logger log = LoggerFactory.getLogger(ExceptionHandlers.class);
 
     @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ExceptionResponses> handleException(ResponseStatusException exc) {
+    public ResponseEntity<ExceptionResponses> handleResponseStatusException(ResponseStatusException exc) {
         log.warn("Handled ResponseStatusException", exc);
         return buildResponseEntity(exc, HttpStatus.valueOf(exc.getStatusCode().value()));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ExceptionResponses> handleException(Exception exc) {
-        log.error("Unhandled exception", exc);   // <-- THIS is what you need
-        return buildResponseEntity(exc, HttpStatus.BAD_REQUEST);
+    public ResponseEntity<ExceptionResponses> handleUnhandledException(Exception exc) {
+        log.error("Unhandled exception", exc);
+        return buildResponseEntity(exc, HttpStatus.INTERNAL_SERVER_ERROR);
     }
 
     private ResponseEntity<ExceptionResponses> buildResponseEntity(Exception exc, HttpStatus status) {

@@ -5,6 +5,7 @@ import com.mihai.overview.entity.Authority;
 import com.mihai.overview.entity.User;
 import com.mihai.overview.repository.UserRepository;
 import com.mihai.overview.request.PasswordUpdateRequest;
+import com.mihai.overview.response.UserListItemResponse;
 import com.mihai.overview.response.UserResponse;
 import com.mihai.overview.util.FindAuthenticatedUser;
 import org.springframework.http.HttpStatus;
@@ -12,6 +13,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -32,22 +35,15 @@ public class UserServiceImpl implements UserService {
         User user = findAuthenticatedUser.getAuthenticatedUser();
         return new UserResponse(
                 user.getId(),
-                user.getFirstName()+" "+user.getLastName(),
+                user.getFirstName() + " " + user.getLastName(),
                 user.getEmail(),
-                user.getAuthorities().stream().map(auth -> (Authority) auth).toList()
+                user.getAuthorities().stream().map(auth -> (Authority) auth).toList(),
+                user.isEnabled(),
+                user.getDisabledAt()
         );
     }
 
-/*    @Override
-    public void deleteUser() {
-        User user = findAuthenticatedUser.getAuthenticatedUser();
 
-        if (isLastAdmin(user)) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Admin cannot delete itself");
-        }
-
-        userRepository.delete(user);
-    }*/
 
     @Transactional
     @Override
@@ -68,6 +64,26 @@ public class UserServiceImpl implements UserService {
 
         userRepository.save(user);
 
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<UserListItemResponse> listUsers() {
+        return userRepository.findAllByOrderByCreatedAtDesc()
+                .stream()
+                .map(u -> new UserListItemResponse(
+                        u.getId(),
+                        u.getFirstName(),
+                        u.getLastName(),
+                        u.getFirstName() + " " + u.getLastName(),
+                        u.getEmail(),
+                        u.getAuthorities().stream().map(a -> a.getAuthority()).toList(),
+                        u.isEnabled(),
+                        u.getDisabledAt(),
+                        u.getCreatedAt(),
+                        u.getUpdatedAt()
+                ))
+                .toList();
     }
 
     private boolean isOldPasswordCorrect (String oldPass, String currPass) {

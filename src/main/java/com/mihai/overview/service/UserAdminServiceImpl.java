@@ -128,6 +128,29 @@ public class UserAdminServiceImpl implements UserAdminService {
         userRepository.save(target);
     }
 
+    @Override
+    @Transactional
+    public void reinstateUser(Long userId) {
+        User actingAdmin = findAuthenticatedUser.getAuthenticatedUser();
+
+        // keep symmetry with your self-disable rule; also practically unreachable if disabled
+        if (actingAdmin.getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot reinstate your own account");
+        }
+
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
+
+        // idempotent
+        if (target.isEnabled()) {
+            return;
+        }
+
+        target.setEnabled(true);
+        target.setDisabledAt(null);
+        userRepository.save(target);
+    }
+
     private List<Authority> authorityEntities(User user) {
         return user.getAuthorities().stream()
                 .map(a -> (Authority) a)

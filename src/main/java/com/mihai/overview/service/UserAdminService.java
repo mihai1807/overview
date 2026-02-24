@@ -10,4 +10,6 @@ public interface UserAdminService {
 
     // ✅ NEW: soft delete
     void disableUser(Long userId);
+
+    void reinstateUser(Long userId);
 }

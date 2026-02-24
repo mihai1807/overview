@@ -18,7 +18,7 @@ public class UserAdminController {
 
     private final UserAdminService userAdminService;
 
-    @PutMapping("/{userId}/promote")
+    @PatchMapping("/{userId}/promote")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> promote(@PathVariable Long userId, @Valid @RequestBody PromoteUserRequest request) {
         User updated = userAdminService.promoteUser(userId, request);
@@ -32,7 +32,7 @@ public class UserAdminController {
         );
     }
 
-    @PutMapping("/{userId}/grant-admin")
+    @PatchMapping("/{userId}/grant-admin")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> grantAdmin(@PathVariable Long userId) {
         User updated = userAdminService.grantAdmin(userId);
@@ -45,7 +45,7 @@ public class UserAdminController {
         );
     }
 
-    @PutMapping("/{userId}/revoke-admin")
+    @PatchMapping("/{userId}/revoke-admin")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> revokeAdmin(@PathVariable Long userId) {
         User updated = userAdminService.revokeAdmin(userId);
@@ -58,12 +58,17 @@ public class UserAdminController {
         );
     }
 
-    @DeleteMapping("/{userId}")
+    @PatchMapping("/{userId}/disable")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> disableUser(@PathVariable Long userId) {
         userAdminService.disableUser(userId);
         return ResponseEntity.noContent().build();
     }
 
-
+    @PatchMapping("/{userId}/reinstate")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> reinstateUser(@PathVariable Long userId) {
+        userAdminService.reinstateUser(userId);
+        return ResponseEntity.noContent().build();
+    }
 }

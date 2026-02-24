@@ -1,25 +1,31 @@
-    package com.mihai.overview.repository;
+package com.mihai.overview.repository;
 
-    import com.mihai.overview.entity.User;
-    import org.springframework.data.jpa.repository.Query;
-    import org.springframework.data.repository.CrudRepository;
-    import org.springframework.data.repository.query.Param;
-    import org.springframework.stereotype.Repository;
-    import java.util.Optional;
+import com.mihai.overview.entity.User;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.data.repository.query.Param;
+import org.springframework.stereotype.Repository;
 
-    @Repository
-    public interface UserRepository extends CrudRepository<User, Long> {
 
-        Optional<User> findByEmail (String email);
+import java.util.List;
+import java.util.Optional;
 
-        @Query("SELECT COUNT(u) FROM User u JOIN u.authorities a WHERE a.authority = 'ROLE_ADMIN'")
-        long countAdminUsers();
+@Repository
+public interface UserRepository extends CrudRepository<User, Long> {
 
-        @Query("""
-           SELECT COUNT(DISTINCT u)
-           FROM User u
-           JOIN u.authorities a
-           WHERE a.authority = :authority
-           """)
-        long countUsersWithAuthority(@Param("authority") String authority);
-    }
+    Optional<User> findByEmail(String email);
+
+    // ✅ NEW: list users ordered by createdAt DESC
+    List<User> findAllByOrderByCreatedAtDesc();
+
+    @Query("SELECT COUNT(u) FROM User u JOIN u.authorities a WHERE a.authority = 'ROLE_ADMIN'")
+    long countAdminUsers();
+
+    @Query("""
+       SELECT COUNT(DISTINCT u)
+       FROM User u
+       JOIN u.authorities a
+       WHERE a.authority = :authority
+       """)
+    long countUsersWithAuthority(@Param("authority") String authority);
+}
