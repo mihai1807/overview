@@ -2,6 +2,7 @@ package com.mihai.overview.service;
 
 import com.mihai.overview.entity.User;
 import com.mihai.overview.request.PromoteUserRequest;
+import com.mihai.overview.request.AdminUpdateUserRequest;
 
 public interface UserAdminService {
     User promoteUser(Long userId, PromoteUserRequest request);
@@ -12,4 +13,6 @@ public interface UserAdminService {
     void disableUser(Long userId);
 
     void reinstateUser(Long userId);
+
+    User updateUserDetails(Long userId, AdminUpdateUserRequest request);
 }

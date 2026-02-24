@@ -4,6 +4,7 @@ import com.mihai.overview.config.AppRole;
 import com.mihai.overview.entity.Authority;
 import com.mihai.overview.entity.User;
 import com.mihai.overview.repository.UserRepository;
+import com.mihai.overview.request.AdminUpdateUserRequest;
 import com.mihai.overview.request.PromoteUserRequest;
 import com.mihai.overview.util.FindAuthenticatedUser;
 import lombok.AllArgsConstructor;
@@ -15,6 +16,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -155,5 +157,37 @@ public class UserAdminServiceImpl implements UserAdminService {
         return user.getAuthorities().stream()
                 .map(a -> (Authority) a)
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public User updateUserDetails(Long userId, AdminUpdateUserRequest request) {
+        User actingAdmin = findAuthenticatedUser.getAuthenticatedUser();
+
+        if (actingAdmin.getId().equals(userId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You cannot edit your own account");
+        }
+
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found: " + userId));
+
+        if (!target.isEnabled()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot edit a disabled user");
+        }
+
+        String newEmail = request.getEmail().trim();
+
+        if (!newEmail.equalsIgnoreCase(target.getEmail())) {
+            Optional<User> existing = userRepository.findByEmail(newEmail);
+            if (existing.isPresent()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email already in use: " + newEmail);
+            }
+            target.setEmail(newEmail);
+        }
+
+        target.setFirstName(request.getFirstName().trim());
+        target.setLastName(request.getLastName().trim());
+
+        return userRepository.save(target);
     }
 }
