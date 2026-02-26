@@ -3,7 +3,7 @@ package com.mihai.overview.repository;
 import com.mihai.overview.entity.InteractionType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,4 +13,7 @@ public interface InteractionTypeRepository extends JpaRepository<InteractionType
     List<InteractionType> findAllByArchivedFalseOrderByCodeAsc();
 
     boolean existsByCode(String code);
+
+    // ✅ NEW: for multi-select code validation + resolution
+    List<InteractionType> findByCodeIn(Collection<String> codes);
 }
