@@ -1,7 +1,7 @@
 package com.mihai.overview.service;
 
-import com.mihai.overview.response.SchemeDetailsResponse;
-import com.mihai.overview.response.SchemeListItemResponse;
+import com.mihai.overview.dto.response.SchemeDetailsResponse;
+import com.mihai.overview.dto.response.SchemeListItemResponse;
 
 import java.util.List;
 

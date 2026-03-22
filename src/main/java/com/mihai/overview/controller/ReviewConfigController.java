@@ -1,11 +1,11 @@
 package com.mihai.overview.controller;
 
-import com.mihai.overview.request.CreateCriticalConditionPoolItemRequest;
-import com.mihai.overview.request.CreateInteractionTypeRequest;
-import com.mihai.overview.request.CreateKpiPoolItemRequest;
-import com.mihai.overview.response.CriticalConditionPoolItemResponse;
-import com.mihai.overview.response.InteractionTypeResponse;
-import com.mihai.overview.response.KpiPoolItemResponse;
+import com.mihai.overview.dto.request.CreateCriticalConditionPoolItemRequest;
+import com.mihai.overview.dto.request.CreateInteractionTypeRequest;
+import com.mihai.overview.dto.request.CreateKpiPoolItemRequest;
+import com.mihai.overview.dto.response.CriticalConditionPoolItemResponse;
+import com.mihai.overview.dto.response.InteractionTypeResponse;
+import com.mihai.overview.dto.response.KpiPoolItemResponse;
 import com.mihai.overview.service.ReviewConfigService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;

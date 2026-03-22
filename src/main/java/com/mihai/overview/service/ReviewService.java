@@ -1,10 +1,10 @@
 package com.mihai.overview.service;
 
-import com.mihai.overview.request.CreateReviewShellRequest;
-import com.mihai.overview.request.UpdateReviewCriticalHitsRequest;
-import com.mihai.overview.request.UpdateReviewKpiScoresRequest;
-import com.mihai.overview.request.UpdateReviewStatusRequest;
-import com.mihai.overview.response.ReviewDetailsResponse;
+import com.mihai.overview.dto.request.CreateReviewShellRequest;
+import com.mihai.overview.dto.request.UpdateReviewCriticalHitsRequest;
+import com.mihai.overview.dto.request.UpdateReviewKpiScoresRequest;
+import com.mihai.overview.dto.request.UpdateReviewStatusRequest;
+import com.mihai.overview.dto.response.ReviewDetailsResponse;
 
 public interface ReviewService {
     ReviewDetailsResponse createReviewShell(CreateReviewShellRequest request);

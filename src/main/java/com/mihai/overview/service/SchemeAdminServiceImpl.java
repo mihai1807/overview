@@ -1,18 +1,18 @@
 package com.mihai.overview.service;
 
 import com.mihai.overview.entity.*;
+import com.mihai.overview.exception.BadRequestException;
+import com.mihai.overview.exception.ConflictException;
+import com.mihai.overview.exception.ResourceNotFoundException;
 import com.mihai.overview.repository.*;
-import com.mihai.overview.request.CreateSchemeRequest;
-import com.mihai.overview.response.SchemeDetailsResponse;
-import com.mihai.overview.response.SchemeListItemStatusResponse;
-import com.mihai.overview.response.SchemeResponse;
-import com.mihai.overview.util.FindAuthenticatedUser;
+import com.mihai.overview.dto.request.CreateSchemeRequest;
+import com.mihai.overview.dto.response.SchemeDetailsResponse;
+import com.mihai.overview.dto.response.SchemeListItemStatusResponse;
+import com.mihai.overview.dto.response.SchemeResponse;
+import com.mihai.overview.security.FindAuthenticatedUser;
 import lombok.AllArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -33,17 +33,21 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
     public SchemeResponse createScheme(String code, CreateSchemeRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
         if (code == null || code.trim().isEmpty()) {
-            throw new IllegalArgumentException("InteractionType code is mandatory");
+            throw new BadRequestException("InteractionType code is mandatory");
         }
 
         String normalizedCode = code.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(normalizedCode)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + normalizedCode));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + normalizedCode));
 
         if (type.isArchived()) {
-            throw new IllegalArgumentException("InteractionType is archived");
+            throw new ConflictException("InteractionType is archived");
         }
 
         // --- KPIs ---
@@ -54,38 +58,38 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
         int weightSum = 0;
 
         List<SchemeKpiRule> schemeKpis = new ArrayList<>();
-        for (CreateSchemeRequest.SchemeKpiInput in : kpiInputs) {
-            if (in == null) {
-                throw new IllegalArgumentException("KPI input cannot be null");
+        for (CreateSchemeRequest.SchemeKpiInput kpiInput : kpiInputs) {
+            if (kpiInput == null) {
+                throw new BadRequestException("KPI input cannot be null");
             }
-            if (in.getKpiId() == null) {
-                throw new IllegalArgumentException("KPI id is mandatory");
-            }
-
-            if (!kpiIds.add(in.getKpiId())) {
-                throw new IllegalArgumentException("Duplicate KPI id in scheme: " + in.getKpiId());
+            if (kpiInput.getKpiId() == null) {
+                throw new BadRequestException("KPI id is mandatory");
             }
 
-            KpiPoolItem kpi = kpiPoolItemRepository.findById(in.getKpiId())
-                    .orElseThrow(() -> new IllegalArgumentException("KPI not found: " + in.getKpiId()));
+            if (!kpiIds.add(kpiInput.getKpiId())) {
+                throw new BadRequestException("Duplicate KPI id in scheme: " + kpiInput.getKpiId());
+            }
+
+            KpiPoolItem kpi = kpiPoolItemRepository.findById(kpiInput.getKpiId())
+                    .orElseThrow(() -> new ResourceNotFoundException("KPI not found: " + kpiInput.getKpiId()));
 
             if (kpi.isArchived()) {
-                throw new IllegalArgumentException("KPI is archived: " + kpi.getId());
+                throw new ConflictException("KPI is archived: " + kpi.getId());
             }
             if (!kpi.getInteractionType().getId().equals(type.getId())) {
-                throw new IllegalArgumentException("KPI does not belong to scheme InteractionType: " + kpi.getId());
+                throw new BadRequestException("KPI does not belong to scheme InteractionType: " + kpi.getId());
             }
 
             if (kpi.getWeightPercent() < 0 || kpi.getWeightPercent() > 100) {
-                throw new IllegalArgumentException("Invalid KPI weightPercent for KPI: " + kpi.getId());
+                throw new BadRequestException("Invalid KPI weightPercent for KPI: " + kpi.getId());
             }
 
             weightSum += kpi.getWeightPercent();
-            schemeKpis.add(new SchemeKpiRule(kpi.getId(), in.getOrderIndex(), in.isRequired(), false));
+            schemeKpis.add(new SchemeKpiRule(kpi.getId(), kpiInput.getOrderIndex(), kpiInput.isRequired(), false));
         }
 
         if (weightSum != 100) {
-            throw new IllegalArgumentException("Scheme KPI weights must sum to 100. Current: " + weightSum);
+            throw new BadRequestException("Scheme KPI weights must sum to 100. Current: " + weightSum);
         }
 
         // --- Criticals ---
@@ -94,34 +98,34 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
 
         Set<Long> criticalIds = new HashSet<>();
         List<SchemeCriticalRule> schemeCriticals = new ArrayList<>();
-        for (CreateSchemeRequest.SchemeCriticalInput in : criticalInputs) {
-            if (in == null) {
-                throw new IllegalArgumentException("Critical input cannot be null");
+        for (CreateSchemeRequest.SchemeCriticalInput criticalInput : criticalInputs) {
+            if (criticalInput == null) {
+                throw new BadRequestException("Critical input cannot be null");
             }
-            if (in.getCriticalId() == null) {
-                throw new IllegalArgumentException("Critical id is mandatory");
-            }
-
-            if (!criticalIds.add(in.getCriticalId())) {
-                throw new IllegalArgumentException("Duplicate critical id in scheme: " + in.getCriticalId());
+            if (criticalInput.getCriticalId() == null) {
+                throw new BadRequestException("Critical id is mandatory");
             }
 
-            CriticalConditionPoolItem c = criticalPoolRepository.findById(in.getCriticalId())
-                    .orElseThrow(() -> new IllegalArgumentException("Critical not found: " + in.getCriticalId()));
-
-            if (c.isArchived()) {
-                throw new IllegalArgumentException("Critical is archived: " + c.getId());
-            }
-            if (!c.getInteractionType().getId().equals(type.getId())) {
-                throw new IllegalArgumentException("Critical does not belong to scheme InteractionType: " + c.getId());
+            if (!criticalIds.add(criticalInput.getCriticalId())) {
+                throw new BadRequestException("Duplicate critical id in scheme: " + criticalInput.getCriticalId());
             }
 
-            schemeCriticals.add(new SchemeCriticalRule(c.getId(), in.getOrderIndex(), false));
+            CriticalConditionPoolItem conditionPoolItem = criticalPoolRepository.findById(criticalInput.getCriticalId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Critical not found: " + criticalInput.getCriticalId()));
+
+            if (conditionPoolItem.isArchived()) {
+                throw new ConflictException("Critical is archived: " + conditionPoolItem.getId());
+            }
+            if (!conditionPoolItem.getInteractionType().getId().equals(type.getId())) {
+                throw new BadRequestException("Critical does not belong to scheme InteractionType: " + conditionPoolItem.getId());
+            }
+
+            schemeCriticals.add(new SchemeCriticalRule(conditionPoolItem.getId(), criticalInput.getOrderIndex(), false));
         }
 
         // --- Create scheme ---
         if (request.getName() == null || request.getName().trim().isEmpty()) {
-            throw new IllegalArgumentException("Scheme name is mandatory");
+            throw new BadRequestException("Scheme name is mandatory");
         }
 
         Scheme scheme = new Scheme();
@@ -141,16 +145,13 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
     @Transactional(readOnly = true)
     public List<SchemeListItemStatusResponse> listSchemesByInteractionType(String code, boolean includeArchived) {
         if (code == null || code.trim().isEmpty()) {
-            throw new IllegalArgumentException("InteractionType code is mandatory");
+            throw new BadRequestException("InteractionType code is mandatory");
         }
 
         String normalizedCode = code.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(normalizedCode)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "InteractionType not found: " + normalizedCode
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + normalizedCode));
 
         List<Scheme> schemes = schemeRepository.findByInteractionType_Code(normalizedCode);
 
@@ -207,12 +208,12 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
                 .toList();
 
         List<SchemeCriticalRule> criticalRules = scheme.getCriticals().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeCriticalRule -> !schemeCriticalRule.isArchived())
                 .toList();
 
         int weightSum = 0;
-        for (SchemeKpiRule r : kpiRules) {
-            KpiPoolItem kpi = activeKpisById.get(r.getKpiId());
+        for (SchemeKpiRule schemeKpiRule : kpiRules) {
+            KpiPoolItem kpi = activeKpisById.get(schemeKpiRule.getKpiId());
             if (kpi == null) {
                 return false;
             }
@@ -222,9 +223,9 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
             return false;
         }
 
-        for (SchemeCriticalRule r : criticalRules) {
-            CriticalConditionPoolItem c = activeCriticalsById.get(r.getCriticalId());
-            if (c == null) {
+        for (SchemeCriticalRule schemeCriticalRule : criticalRules) {
+            CriticalConditionPoolItem criticalConditionPoolItem = activeCriticalsById.get(schemeCriticalRule.getCriticalId());
+            if (criticalConditionPoolItem == null) {
                 return false;
             }
         }
@@ -232,19 +233,19 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
         return true;
     }
 
-    // ✅ MOVED from ConfigQueryServiceImpl, now supports includeArchived
+
     @Override
     @Transactional(readOnly = true)
     public SchemeDetailsResponse getSchemeDetails(Long schemeId, boolean includeArchived) {
         if (schemeId == null || schemeId < 1) {
-            throw new IllegalArgumentException("schemeId must be positive");
+            throw new BadRequestException("schemeId must be positive");
         }
 
         Scheme scheme = schemeRepository.findById(schemeId)
-                .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + schemeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found: " + schemeId));
 
         if (scheme.isArchived() && !includeArchived) {
-            throw new IllegalArgumentException("Scheme is archived");
+            throw new ConflictException("Scheme is archived");
         }
 
         InteractionType type = scheme.getInteractionType();
@@ -264,10 +265,10 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
 
         List<SchemeDetailsResponse.KpiInScheme> kpiResponses = kpiRuleStream
                 .sorted(Comparator.comparingInt(SchemeKpiRule::getOrderIndex))
-                .map(r -> {
-                    KpiPoolItem kpi = kpiById.get(r.getKpiId());
+                .map(schemeKpiRule -> {
+                    KpiPoolItem kpi = kpiById.get(schemeKpiRule.getKpiId());
                     if (kpi == null || kpi.isArchived()) {
-                        throw new IllegalStateException("Scheme references missing/archived KPI: " + r.getKpiId());
+                        throw new ConflictException("Scheme references missing/archived KPI: " + schemeKpiRule.getKpiId());
                     }
                     return new SchemeDetailsResponse.KpiInScheme(
                             kpi.getId(),
@@ -275,8 +276,8 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
                             kpi.getDescription(),
                             kpi.getDetails(),
                             kpi.getWeightPercent(),
-                            r.getOrderIndex(),
-                            r.isRequired()
+                            schemeKpiRule.getOrderIndex(),
+                            schemeKpiRule.isRequired()
                     );
                 })
                 .toList();
@@ -288,16 +289,16 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
 
         List<SchemeDetailsResponse.CriticalInScheme> criticalResponses = criticalRuleStream
                 .sorted(Comparator.comparingInt(SchemeCriticalRule::getOrderIndex))
-                .map(r -> {
-                    CriticalConditionPoolItem c = criticalById.get(r.getCriticalId());
+                .map(schemeCriticalRule -> {
+                    CriticalConditionPoolItem c = criticalById.get(schemeCriticalRule.getCriticalId());
                     if (c == null || c.isArchived()) {
-                        throw new IllegalStateException("Scheme references missing/archived Critical: " + r.getCriticalId());
+                        throw new ConflictException("Scheme references missing/archived Critical: " + schemeCriticalRule.getCriticalId());
                     }
                     return new SchemeDetailsResponse.CriticalInScheme(
                             c.getId(),
                             c.getName(),
                             c.getDescription(),
-                            r.getOrderIndex()
+                            schemeCriticalRule.getOrderIndex()
                     );
                 })
                 .toList();
@@ -315,14 +316,14 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
     @Transactional
     public void archiveScheme(Long schemeId) {
         if (schemeId == null || schemeId < 1) {
-            throw new IllegalArgumentException("schemeId must be positive");
+            throw new BadRequestException("schemeId must be positive");
         }
 
         Scheme scheme = schemeRepository.findById(schemeId)
-                .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + schemeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found: " + schemeId));
 
         if (scheme.isArchived()) {
-            return;
+            throw new ConflictException("Scheme is already archived");
         }
 
         scheme.setArchived(true);
@@ -333,14 +334,14 @@ public class SchemeAdminServiceImpl implements SchemeAdminService {
     @Transactional
     public void unarchiveScheme(Long schemeId) {
         if (schemeId == null || schemeId < 1) {
-            throw new IllegalArgumentException("schemeId must be positive");
+            throw new BadRequestException("schemeId must be positive");
         }
 
         Scheme scheme = schemeRepository.findById(schemeId)
-                .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + schemeId));
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found: " + schemeId));
 
         if (!scheme.isArchived()) {
-            return;
+            throw new ConflictException("Scheme is already active");
         }
 
         scheme.setArchived(false);

@@ -1,8 +1,8 @@
 package com.mihai.overview.controller;
 
-import com.mihai.overview.request.PasswordUpdateRequest;
-import com.mihai.overview.response.UserListItemResponse;
-import com.mihai.overview.response.UserResponse;
+import com.mihai.overview.dto.request.PasswordUpdateRequest;
+import com.mihai.overview.dto.response.UserListItemResponse;
+import com.mihai.overview.dto.response.UserResponse;
 import com.mihai.overview.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

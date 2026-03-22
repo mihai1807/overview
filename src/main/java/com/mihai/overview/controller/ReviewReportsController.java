@@ -1,7 +1,7 @@
 package com.mihai.overview.controller;
 
-import com.mihai.overview.request.ReviewAverageReportRequest;
-import com.mihai.overview.response.ReviewAverageReportResponse;
+import com.mihai.overview.dto.request.ReviewAverageReportRequest;
+import com.mihai.overview.dto.response.ReviewAverageReportResponse;
 import com.mihai.overview.service.ReviewReportService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;

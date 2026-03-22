@@ -1,11 +1,13 @@
 package com.mihai.overview.service;
 
+import com.mihai.overview.security.AppRole;
 import com.mihai.overview.entity.Authority;
 import com.mihai.overview.entity.User;
 import com.mihai.overview.repository.UserRepository;
-import com.mihai.overview.request.AuthenticationRequest;
-import com.mihai.overview.request.RegisterRequest;
-import com.mihai.overview.response.AuthenticationResponse;
+import com.mihai.overview.dto.request.AuthenticationRequest;
+import com.mihai.overview.dto.request.RegisterRequest;
+import com.mihai.overview.dto.response.AuthenticationResponse;
+import com.mihai.overview.security.JwtService;
 import lombok.AllArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -60,7 +62,6 @@ public class AuthenticationServiceImpl implements AuthenticationService{
 
     private User buildNewUser(RegisterRequest input) {
         User user = new User();
-        //user.setId(0L);
         user.setFirstName(input.getFirstName());
         user.setLastName(input.getLastName());
         user.setEmail(input.getEmail());
@@ -72,9 +73,9 @@ public class AuthenticationServiceImpl implements AuthenticationService{
     private List<Authority> initialAuthority() {
         boolean isFirstUser = userRepository.count() == 0;
         List<Authority> authorities = new ArrayList<>();
-        authorities.add(new Authority("ROLE_AGENT"));
+        authorities.add(new Authority(AppRole.AGENT.asAuthority()));
         if (isFirstUser) {
-            authorities.add(new Authority("ROLE_ADMIN"));
+            authorities.add(new Authority(AppRole.ADMIN.asAuthority()));
         }
         return authorities;
     }

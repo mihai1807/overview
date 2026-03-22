@@ -1,11 +1,11 @@
 package com.mihai.overview.service;
 
-import com.mihai.overview.request.CreateCriticalConditionPoolItemRequest;
-import com.mihai.overview.request.CreateInteractionTypeRequest;
-import com.mihai.overview.request.CreateKpiPoolItemRequest;
-import com.mihai.overview.response.CriticalConditionPoolItemResponse;
-import com.mihai.overview.response.InteractionTypeResponse;
-import com.mihai.overview.response.KpiPoolItemResponse;
+import com.mihai.overview.dto.request.CreateCriticalConditionPoolItemRequest;
+import com.mihai.overview.dto.request.CreateInteractionTypeRequest;
+import com.mihai.overview.dto.request.CreateKpiPoolItemRequest;
+import com.mihai.overview.dto.response.CriticalConditionPoolItemResponse;
+import com.mihai.overview.dto.response.InteractionTypeResponse;
+import com.mihai.overview.dto.response.KpiPoolItemResponse;
 
 import java.util.List;
 

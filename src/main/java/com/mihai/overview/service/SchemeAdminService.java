@@ -1,9 +1,9 @@
 package com.mihai.overview.service;
 
-import com.mihai.overview.request.CreateSchemeRequest;
-import com.mihai.overview.response.SchemeDetailsResponse;
-import com.mihai.overview.response.SchemeListItemStatusResponse;
-import com.mihai.overview.response.SchemeResponse;
+import com.mihai.overview.dto.request.CreateSchemeRequest;
+import com.mihai.overview.dto.response.SchemeDetailsResponse;
+import com.mihai.overview.dto.response.SchemeListItemStatusResponse;
+import com.mihai.overview.dto.response.SchemeResponse;
 
 import java.util.List;
 

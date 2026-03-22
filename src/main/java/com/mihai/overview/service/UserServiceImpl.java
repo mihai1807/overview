@@ -3,16 +3,17 @@ package com.mihai.overview.service;
 
 import com.mihai.overview.entity.Authority;
 import com.mihai.overview.entity.User;
+import com.mihai.overview.exception.BadRequestException;
 import com.mihai.overview.repository.UserRepository;
-import com.mihai.overview.request.PasswordUpdateRequest;
-import com.mihai.overview.response.UserListItemResponse;
-import com.mihai.overview.response.UserResponse;
-import com.mihai.overview.util.FindAuthenticatedUser;
-import org.springframework.http.HttpStatus;
+import com.mihai.overview.dto.request.PasswordUpdateRequest;
+import com.mihai.overview.dto.response.UserListItemResponse;
+import com.mihai.overview.dto.response.UserResponse;
+import com.mihai.overview.security.AppRole;
+import com.mihai.overview.security.FindAuthenticatedUser;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+
 
 import java.util.List;
 
@@ -51,13 +52,13 @@ public class UserServiceImpl implements UserService {
         User user = findAuthenticatedUser.getAuthenticatedUser();
 
         if (!isOldPasswordCorrect(passwordUpdateRequest.getOldPassword(), user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Current password is incorrect");
+            throw new BadRequestException("Current password is incorrect");
         }
         if (!isNewPasswordConfirmed(passwordUpdateRequest.getNewPassword(), passwordUpdateRequest.getNewPassword2())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New passwords do not match");
+            throw new BadRequestException("New passwords do not match.");
         }
         if (isNewPasswordTheSameAsOldPassword(passwordUpdateRequest.getNewPassword(), user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New password cannot be the same as the old password.");
+            throw new BadRequestException("New password cannot be the same as the old password.");
         }
 
         user.setPassword(passwordEncoder.encode(passwordUpdateRequest.getNewPassword()));
@@ -102,7 +103,7 @@ public class UserServiceImpl implements UserService {
 
     private boolean isLastAdmin(User user){
         boolean isAdmin = user.getAuthorities().stream()
-                .anyMatch(authority -> "ROLE_ADMIN".equals(authority.getAuthority()));
+                .anyMatch(authority -> AppRole.ADMIN.asAuthority().equals(authority.getAuthority()));
         if (isAdmin) {
             long adminCount = userRepository.countAdminUsers();
             return adminCount<=1;

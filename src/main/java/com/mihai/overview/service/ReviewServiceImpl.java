@@ -1,21 +1,23 @@
 package com.mihai.overview.service;
 
 import com.mihai.overview.entity.*;
+import com.mihai.overview.exception.BadRequestException;
+import com.mihai.overview.exception.ConflictException;
+import com.mihai.overview.exception.ForbiddenException;
+import com.mihai.overview.exception.ResourceNotFoundException;
 import com.mihai.overview.repository.CriticalConditionPoolItemRepository;
 import com.mihai.overview.repository.KpiPoolItemRepository;
 import com.mihai.overview.repository.ReviewRepository;
 import com.mihai.overview.repository.SchemeRepository;
-import com.mihai.overview.request.CreateReviewShellRequest;
-import com.mihai.overview.request.UpdateReviewCriticalHitsRequest;
-import com.mihai.overview.request.UpdateReviewKpiScoresRequest;
-import com.mihai.overview.request.UpdateReviewStatusRequest;
-import com.mihai.overview.response.ReviewDetailsResponse;
-import com.mihai.overview.util.FindAuthenticatedUser;
+import com.mihai.overview.dto.request.CreateReviewShellRequest;
+import com.mihai.overview.dto.request.UpdateReviewCriticalHitsRequest;
+import com.mihai.overview.dto.request.UpdateReviewKpiScoresRequest;
+import com.mihai.overview.dto.request.UpdateReviewStatusRequest;
+import com.mihai.overview.dto.response.ReviewDetailsResponse;
+import com.mihai.overview.security.FindAuthenticatedUser;
 import lombok.AllArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -39,43 +41,47 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDetailsResponse createReviewShell(CreateReviewShellRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
         Scheme scheme = schemeRepository.findById(request.getSchemeId())
-                .orElseThrow(() -> new IllegalArgumentException("Scheme not found: " + request.getSchemeId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Scheme not found: " + request.getSchemeId()));
 
         if (scheme.isArchived()) {
-            throw new IllegalArgumentException("Scheme is archived");
+            throw new ConflictException("Scheme is archived");
         }
 
         InteractionType type = scheme.getInteractionType();
 
         // Allowed KPI ids from scheme rules (non-archived rules)
         List<SchemeKpiRule> schemeKpis = scheme.getKpis().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeKpiRule -> !schemeKpiRule.isArchived())
                 .toList();
 
         // Allowed Critical ids from scheme rules (non-archived rules)
         List<SchemeCriticalRule> schemeCriticals = scheme.getCriticals().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeCriticalRule -> !schemeCriticalRule.isArchived())
                 .toList();
 
         // Load ACTIVE pool items (archived pool items make scheme unusable for new reviews)
         Map<Long, KpiPoolItem> kpiById = kpiPoolItemRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(k -> !k.isArchived())
+                .filter(kpiPoolItem -> !kpiPoolItem.isArchived())
                 .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
 
         Map<Long, CriticalConditionPoolItem> criticalById = criticalPoolRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(c -> !c.isArchived())
+                .filter(criticalConditionPoolItem -> !criticalConditionPoolItem.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
 
         // Fail fast if scheme contains missing/archived pool references
-        for (SchemeKpiRule r : schemeKpis) {
-            if (!kpiById.containsKey(r.getKpiId())) {
-                throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + r.getKpiId());
+        for (SchemeKpiRule schemeKpiRule : schemeKpis) {
+            if (!kpiById.containsKey(schemeKpiRule.getKpiId())) {
+                throw new ConflictException("Scheme contains missing/archived KPI: " + schemeKpiRule.getKpiId());
             }
         }
-        for (SchemeCriticalRule r : schemeCriticals) {
-            if (!criticalById.containsKey(r.getCriticalId())) {
-                throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
+        for (SchemeCriticalRule schemeCriticalRule : schemeCriticals) {
+            if (!criticalById.containsKey(schemeCriticalRule.getCriticalId())) {
+                throw new ConflictException("Scheme contains missing/archived Critical: " + schemeCriticalRule.getCriticalId());
             }
         }
 
@@ -94,8 +100,8 @@ public class ReviewServiceImpl implements ReviewService {
         review.setTotalScore(0);
 
         // Auto-create KPI score rows (score = null)
-        for (SchemeKpiRule r : schemeKpis) {
-            KpiPoolItem kpi = kpiById.get(r.getKpiId());
+        for (SchemeKpiRule schemeKpiRule : schemeKpis) {
+            KpiPoolItem kpi = kpiById.get(schemeKpiRule.getKpiId());
             ReviewKpiScore line = new ReviewKpiScore();
             line.setReview(review);
             line.setKpi(kpi);
@@ -104,11 +110,11 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         // Auto-create critical hit rows (triggered = false)
-        for (SchemeCriticalRule r : schemeCriticals) {
-            CriticalConditionPoolItem c = criticalById.get(r.getCriticalId());
+        for (SchemeCriticalRule schemeCriticalRule : schemeCriticals) {
+            CriticalConditionPoolItem criticalConditionPoolItem = criticalById.get(schemeCriticalRule.getCriticalId());
             ReviewCriticalHit hit = new ReviewCriticalHit();
             hit.setReview(review);
-            hit.setCritical(c);
+            hit.setCritical(criticalConditionPoolItem);
             hit.setTriggered(false);
             review.getCriticalHits().add(hit);
         }
@@ -122,20 +128,24 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDetailsResponse updateKpiScores(Long reviewId, UpdateReviewKpiScoresRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + reviewId));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
 
         enforceOwner(review, currentUser);
 
         Scheme scheme = review.getScheme();
         if (scheme.isArchived()) {
-            throw new IllegalArgumentException("Scheme is archived");
+            throw new ConflictException("Scheme is archived");
         }
 
         InteractionType type = review.getInteractionType();
 
         List<SchemeKpiRule> schemeKpis = scheme.getKpis().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeKpiRule -> !schemeKpiRule.isArchived())
                 .toList();
 
         Set<Long> expectedKpiIds = schemeKpis.stream()
@@ -144,28 +154,28 @@ public class ReviewServiceImpl implements ReviewService {
 
         // Validate request: must include ALL scheme KPIs, no duplicates
         Set<Long> seen = new HashSet<>();
-        for (UpdateReviewKpiScoresRequest.KpiScoreInput in : request.getKpiScores()) {
-            if (!seen.add(in.getKpiId())) {
-                throw new IllegalArgumentException("Duplicate KPI id in request: " + in.getKpiId());
+        for (UpdateReviewKpiScoresRequest.KpiScoreInput kpiScoreInput : request.getKpiScores()) {
+            if (!seen.add(kpiScoreInput.getKpiId())) {
+                throw new BadRequestException("Duplicate KPI id in request: " + kpiScoreInput.getKpiId());
             }
-            if (!expectedKpiIds.contains(in.getKpiId())) {
-                throw new IllegalArgumentException("KPI not part of scheme: " + in.getKpiId());
+            if (!expectedKpiIds.contains(kpiScoreInput.getKpiId())) {
+                throw new BadRequestException("KPI not part of scheme: " + kpiScoreInput.getKpiId());
             }
         }
         if (seen.size() != expectedKpiIds.size()) {
-            throw new IllegalArgumentException("All scheme KPIs must be scored. Expected: " +
+            throw new BadRequestException("All scheme KPIs must be scored. Expected: " +
                     expectedKpiIds.size() + ", provided: " + seen.size());
         }
 
         // ACTIVE pool KPIs map (weights)
         Map<Long, KpiPoolItem> kpiById = kpiPoolItemRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(k -> !k.isArchived())
+                .filter(kpiPoolItem -> !kpiPoolItem.isArchived())
                 .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
 
         // Validate scheme references still exist in ACTIVE pool
         for (Long id : expectedKpiIds) {
             if (!kpiById.containsKey(id)) {
-                throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + id);
+                throw new ConflictException("Scheme contains missing/archived KPI: " + id);
             }
         }
 
@@ -174,28 +184,28 @@ public class ReviewServiceImpl implements ReviewService {
                 .collect(Collectors.toMap(l -> l.getKpi().getId(), Function.identity()));
 
         // Apply updates
-        for (UpdateReviewKpiScoresRequest.KpiScoreInput in : request.getKpiScores()) {
-            ReviewKpiScore line = existingLines.get(in.getKpiId());
+        for (UpdateReviewKpiScoresRequest.KpiScoreInput kpiScoreInput : request.getKpiScores()) {
+            ReviewKpiScore line = existingLines.get(kpiScoreInput.getKpiId());
             if (line == null) {
                 // Indicates inconsistent DB state; still returned as 400 via your global handler
-                throw new IllegalArgumentException("Review is missing KPI row for: " + in.getKpiId());
+                throw new ConflictException("Review is missing KPI row for: " + kpiScoreInput.getKpiId());
             }
-            line.setScore(in.getScore());
+            line.setScore(kpiScoreInput.getScore());
         }
 
         // Recompute totalScore: sum(score * weight) / 100, with weights coming from pool
         int weightedSum = 0;
         int weightSum = 0;
 
-        for (UpdateReviewKpiScoresRequest.KpiScoreInput in : request.getKpiScores()) {
-            KpiPoolItem kpi = kpiById.get(in.getKpiId());
+        for (UpdateReviewKpiScoresRequest.KpiScoreInput kpiScoreInput : request.getKpiScores()) {
+            KpiPoolItem kpi = kpiById.get(kpiScoreInput.getKpiId());
             int w = kpi.getWeightPercent();
-            weightedSum += in.getScore() * w;
+            weightedSum += kpiScoreInput.getScore() * w;
             weightSum += w;
         }
 
         if (weightSum != 100) {
-            throw new IllegalArgumentException("Scheme KPI weights must sum to 100. Current: " + weightSum);
+            throw new BadRequestException("Scheme KPI weights must sum to 100. Current: " + weightSum);
         }
 
         int totalScore = Math.round(weightedSum / 100.0f);
@@ -205,11 +215,11 @@ public class ReviewServiceImpl implements ReviewService {
 
         // For response enrichment (critical)
         List<SchemeCriticalRule> schemeCriticals = scheme.getCriticals().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeCriticalRule -> !schemeCriticalRule.isArchived())
                 .toList();
 
         Map<Long, CriticalConditionPoolItem> criticalById = criticalPoolRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(c -> !c.isArchived())
+                .filter(criticalConditionPoolItem -> !criticalConditionPoolItem.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
 
         return toDetailsResponse(saved, kpiById, criticalById, schemeKpis, schemeCriticals);
@@ -220,20 +230,24 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDetailsResponse updateCriticalHits(Long reviewId, UpdateReviewCriticalHitsRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + reviewId));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
 
         enforceOwner(review, currentUser);
 
         Scheme scheme = review.getScheme();
         if (scheme.isArchived()) {
-            throw new IllegalArgumentException("Scheme is archived");
+            throw new ConflictException("Scheme is archived");
         }
 
         InteractionType type = review.getInteractionType();
 
         List<SchemeCriticalRule> schemeCriticals = scheme.getCriticals().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeCriticalRule -> !schemeCriticalRule.isArchived())
                 .toList();
 
         Set<Long> allowedCriticalIds = schemeCriticals.stream()
@@ -248,22 +262,22 @@ public class ReviewServiceImpl implements ReviewService {
         Set<Long> seen = new HashSet<>();
         for (Long id : triggered) {
             if (!seen.add(id)) {
-                throw new IllegalArgumentException("Duplicate triggered critical id: " + id);
+                throw new BadRequestException("Duplicate triggered critical id: " + id);
             }
             if (!allowedCriticalIds.contains(id)) {
-                throw new IllegalArgumentException("Critical not part of scheme: " + id);
+                throw new BadRequestException("Critical not part of scheme: " + id);
             }
         }
 
         // Map existing review critical rows by critical id
         Map<Long, ReviewCriticalHit> hitByCriticalId = review.getCriticalHits().stream()
-                .collect(Collectors.toMap(h -> h.getCritical().getId(), Function.identity()));
+                .collect(Collectors.toMap(reviewCriticalHit -> reviewCriticalHit.getCritical().getId(), Function.identity()));
 
         // First set all to false
         for (Long id : allowedCriticalIds) {
             ReviewCriticalHit hit = hitByCriticalId.get(id);
             if (hit == null) {
-                throw new IllegalArgumentException("Review is missing Critical row for: " + id);
+                throw new ConflictException("Review is missing Critical row for: " + id);
             }
             hit.setTriggered(false);
         }
@@ -278,21 +292,21 @@ public class ReviewServiceImpl implements ReviewService {
 
         // For response enrichment (active pools)
         List<SchemeKpiRule> schemeKpis = scheme.getKpis().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeKpiRule -> !schemeKpiRule.isArchived())
                 .toList();
 
         Map<Long, KpiPoolItem> kpiById = kpiPoolItemRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(k -> !k.isArchived())
+                .filter(kpiPoolItem -> !kpiPoolItem.isArchived())
                 .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
 
         Map<Long, CriticalConditionPoolItem> criticalById = criticalPoolRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(c -> !c.isArchived())
+                .filter(criticalConditionPoolItem -> !criticalConditionPoolItem.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
 
         // Optional extra safety: if scheme contains missing/archived pool criticals, fail here too
-        for (SchemeCriticalRule r : schemeCriticals) {
-            if (!criticalById.containsKey(r.getCriticalId())) {
-                throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
+        for (SchemeCriticalRule schemeCriticalRule : schemeCriticals) {
+            if (!criticalById.containsKey(schemeCriticalRule.getCriticalId())) {
+                throw new ConflictException("Scheme contains missing/archived Critical: " + schemeCriticalRule.getCriticalId());
             }
         }
 
@@ -304,8 +318,12 @@ public class ReviewServiceImpl implements ReviewService {
     public ReviewDetailsResponse updateStatus(Long reviewId, UpdateReviewStatusRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new IllegalArgumentException("Review not found: " + reviewId));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
 
         enforceOwner(review, currentUser);
 
@@ -315,7 +333,7 @@ public class ReviewServiceImpl implements ReviewService {
             // Must have all KPI scores filled
             for (ReviewKpiScore line : review.getKpiScores()) {
                 if (line.getScore() == null) {
-                    throw new IllegalArgumentException("Cannot finalize review: some KPI scores are missing");
+                    throw new ConflictException("Cannot finalize review: some KPI scores are missing");
                 }
             }
             review.setStatus(ReviewStatus.FINAL);
@@ -335,30 +353,30 @@ public class ReviewServiceImpl implements ReviewService {
         InteractionType type = saved.getInteractionType();
 
         List<SchemeKpiRule> schemeKpis = scheme.getKpis().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeKpiRule -> !schemeKpiRule.isArchived())
                 .toList();
 
         List<SchemeCriticalRule> schemeCriticals = scheme.getCriticals().stream()
-                .filter(r -> !r.isArchived())
+                .filter(schemeCriticalRule -> !schemeCriticalRule.isArchived())
                 .toList();
 
         Map<Long, KpiPoolItem> kpiById = kpiPoolItemRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(k -> !k.isArchived())
+                .filter(kpiPoolItem -> !kpiPoolItem.isArchived())
                 .collect(Collectors.toMap(KpiPoolItem::getId, Function.identity()));
 
         Map<Long, CriticalConditionPoolItem> criticalById = criticalPoolRepository.findByInteractionType_Id(type.getId()).stream()
-                .filter(c -> !c.isArchived())
+                .filter(criticalConditionPoolItem -> !criticalConditionPoolItem.isArchived())
                 .collect(Collectors.toMap(CriticalConditionPoolItem::getId, Function.identity()));
 
         // Fail fast if scheme contains missing/archived pool references (consistent error)
-        for (SchemeKpiRule r : schemeKpis) {
-            if (!kpiById.containsKey(r.getKpiId())) {
-                throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + r.getKpiId());
+        for (SchemeKpiRule schemeKpiRule : schemeKpis) {
+            if (!kpiById.containsKey(schemeKpiRule.getKpiId())) {
+                throw new ConflictException("Scheme contains missing/archived KPI: " + schemeKpiRule.getKpiId());
             }
         }
-        for (SchemeCriticalRule r : schemeCriticals) {
-            if (!criticalById.containsKey(r.getCriticalId())) {
-                throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
+        for (SchemeCriticalRule schemeCriticalRule : schemeCriticals) {
+            if (!criticalById.containsKey(schemeCriticalRule.getCriticalId())) {
+                throw new ConflictException("Scheme contains missing/archived Critical: " + schemeCriticalRule.getCriticalId());
             }
         }
 
@@ -367,7 +385,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     private void enforceOwner(Review review, User currentUser) {
         if (!Objects.equals(review.getReviewerId(), currentUser.getId())) {
-            throw new AccessDeniedException("You can only edit reviews you created");
+            throw new ForbiddenException("You can only edit reviews you created");
         }
     }
 
@@ -381,15 +399,15 @@ public class ReviewServiceImpl implements ReviewService {
         // KPI lines in scheme order
         List<ReviewDetailsResponse.KpiLine> kpis = schemeKpis.stream()
                 .sorted(Comparator.comparingInt(SchemeKpiRule::getOrderIndex))
-                .map(r -> {
-                    KpiPoolItem kpi = kpiById.get(r.getKpiId());
+                .map(schemeKpiRule -> {
+                    KpiPoolItem kpi = kpiById.get(schemeKpiRule.getKpiId());
                     if (kpi == null) {
-                        throw new IllegalArgumentException("Scheme contains missing/archived KPI: " + r.getKpiId());
+                        throw new ConflictException("Scheme contains missing/archived KPI: " + schemeKpiRule.getKpiId());
                     }
 
-                    // Find review line for score (may be null)
+                    // Find review line for score (it may be null)
                     Integer score = review.getKpiScores().stream()
-                            .filter(l -> l.getKpi().getId().equals(kpi.getId()))
+                            .filter(reviewKpiScore -> reviewKpiScore.getKpi().getId().equals(kpi.getId()))
                             .findFirst()
                             .map(ReviewKpiScore::getScore)
                             .orElse(null);
@@ -398,7 +416,7 @@ public class ReviewServiceImpl implements ReviewService {
                             kpi.getId(),
                             kpi.getName(),
                             kpi.getWeightPercent(),
-                            r.isRequired(),
+                            schemeKpiRule.isRequired(),
                             score
                     );
                 })
@@ -407,28 +425,28 @@ public class ReviewServiceImpl implements ReviewService {
         // Critical lines in scheme order
         List<ReviewDetailsResponse.CriticalLine> criticals = schemeCriticals.stream()
                 .sorted(Comparator.comparingInt(SchemeCriticalRule::getOrderIndex))
-                .map(r -> {
-                    CriticalConditionPoolItem c = criticalById.get(r.getCriticalId());
-                    if (c == null) {
-                        throw new IllegalArgumentException("Scheme contains missing/archived Critical: " + r.getCriticalId());
+                .map(schemeCriticalRule -> {
+                    CriticalConditionPoolItem criticalConditionPoolItem = criticalById.get(schemeCriticalRule.getCriticalId());
+                    if (criticalConditionPoolItem == null) {
+                        throw new ConflictException("Scheme contains missing/archived Critical: " + schemeCriticalRule.getCriticalId());
                     }
 
                     boolean triggered = review.getCriticalHits().stream()
-                            .filter(h -> h.getCritical().getId().equals(c.getId()))
+                            .filter(reviewCriticalHit -> reviewCriticalHit.getCritical().getId().equals(criticalConditionPoolItem.getId()))
                             .map(ReviewCriticalHit::isTriggered)
                             .findFirst()
                             .orElse(false);
 
                     return new ReviewDetailsResponse.CriticalLine(
-                            c.getId(),
-                            c.getName(),
+                            criticalConditionPoolItem.getId(),
+                            criticalConditionPoolItem.getName(),
                             triggered
                     );
                 })
                 .toList();
 
         // totalScore: expose null if still draft with missing KPI scores
-        boolean hasMissing = review.getKpiScores().stream().anyMatch(l -> l.getScore() == null);
+        boolean hasMissing = review.getKpiScores().stream().anyMatch(reviewKpiScore -> reviewKpiScore.getScore() == null);
         Integer exposedTotal = hasMissing ? null : review.getTotalScore();
 
         return new ReviewDetailsResponse(

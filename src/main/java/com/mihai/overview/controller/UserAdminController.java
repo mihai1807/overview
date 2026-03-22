@@ -1,9 +1,9 @@
 package com.mihai.overview.controller;
 
 import com.mihai.overview.entity.User;
-import com.mihai.overview.request.AdminUpdateUserRequest;
-import com.mihai.overview.request.PromoteUserRequest;
-import com.mihai.overview.response.AdminUpdateUserResponse;
+import com.mihai.overview.dto.request.AdminUpdateUserRequest;
+import com.mihai.overview.dto.request.PromoteUserRequest;
+import com.mihai.overview.dto.response.AdminUpdateUserResponse;
 import com.mihai.overview.service.UserAdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
