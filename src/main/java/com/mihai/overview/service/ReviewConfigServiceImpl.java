@@ -4,6 +4,9 @@ import com.mihai.overview.entity.CriticalConditionPoolItem;
 import com.mihai.overview.entity.InteractionType;
 import com.mihai.overview.entity.KpiPoolItem;
 import com.mihai.overview.entity.User;
+import com.mihai.overview.exception.BadRequestException;
+import com.mihai.overview.exception.ConflictException;
+import com.mihai.overview.exception.ResourceNotFoundException;
 import com.mihai.overview.repository.CriticalConditionPoolItemRepository;
 import com.mihai.overview.repository.InteractionTypeRepository;
 import com.mihai.overview.repository.KpiPoolItemRepository;
@@ -34,8 +37,26 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     public InteractionTypeResponse createInteractionType(CreateInteractionTypeRequest request) {
         User currentUser = findAuthenticatedUser.getAuthenticatedUser();
 
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
+        if (request.getCode() == null || request.getCode().trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new BadRequestException("InteractionType name is mandatory");
+        }
+
+        String normalizedCode = request.getCode().trim().toUpperCase();
+
+        if (interactionTypeRepository.findByCode(normalizedCode).isPresent()) {
+            throw new ConflictException("InteractionType already exists: " + normalizedCode);
+        }
+
         InteractionType type = new InteractionType();
-        type.setCode(request.getCode().trim().toUpperCase());
+        type.setCode(normalizedCode);
         type.setName(request.getName().trim());
         type.setCreatedByUserId(currentUser.getId());
         type.setArchived(false);
@@ -47,20 +68,37 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional
     public KpiPoolItemResponse createKpiPoolItem(String interactionTypeCode, CreateKpiPoolItemRequest request) {
-        User currentUser = find_authenticated();
+
+        User currentUser = findAuthenticatedUser.getAuthenticatedUser();
+
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
 
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
 
         if (type.isArchived()) {
-            throw new IllegalArgumentException("InteractionType is archived");
+            throw new ConflictException("InteractionType is archived");
         }
 
-        if (request.getWeightPercent() < 0 || request.getWeightPercent() > 100) {
-            throw new IllegalArgumentException("weightPercent must be between 0 and 100");
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new BadRequestException("KPI name is mandatory");
+        }
+
+        if (request.getDescription() == null || request.getDescription().trim().isEmpty()) {
+            throw new BadRequestException("KPI description is mandatory");
+        }
+
+        if (request.getDetails() == null || request.getDetails().trim().isEmpty()) {
+            throw new BadRequestException("KPI details are mandatory");
         }
 
         KpiPoolItem kpi = new KpiPoolItem();
@@ -87,15 +125,31 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional
     public CriticalConditionPoolItemResponse createCriticalConditionPoolItem(String interactionTypeCode, CreateCriticalConditionPoolItemRequest request) {
-        User currentUser = find_authenticated();
+        User currentUser = findAuthenticatedUser.getAuthenticatedUser();
+
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
 
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         if (type.isArchived()) {
-            throw new IllegalArgumentException("InteractionType is archived");
+            throw new ConflictException("InteractionType is archived");
+        }
+
+        if (request.getName() == null || request.getName().trim().isEmpty()) {
+            throw new BadRequestException("Critical name is mandatory");
+        }
+
+        if (request.getDescription() == null || request.getDescription().trim().isEmpty()) {
+            throw new BadRequestException("Critical description is mandatory");
         }
 
         CriticalConditionPoolItem c = new CriticalConditionPoolItem();
@@ -120,10 +174,14 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional(readOnly = true)
     public List<KpiPoolItemResponse> listKpiPoolItems(String interactionTypeCode, boolean includeArchived) {
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         List<KpiPoolItem> items = includeArchived
                 ? kpiPoolItemRepository.findAllByInteractionTypeIdOrderByNameAsc(type.getId())
@@ -145,10 +203,15 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional(readOnly = true)
     public List<CriticalConditionPoolItemResponse> listCriticalConditionPoolItems(String interactionTypeCode, boolean includeArchived) {
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
+
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         List<CriticalConditionPoolItem> items = includeArchived
                 ? criticalPoolRepository.findAllByInteractionTypeIdOrderByNameAsc(type.getId())
@@ -169,13 +232,26 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional
     public void archiveKpiPoolItem(String interactionTypeCode, Long kpiId) {
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
+
+        if (kpiId == null || kpiId < 1) {
+            throw new BadRequestException("kpiId must be positive");
+        }
+
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         KpiPoolItem item = kpiPoolItemRepository.findByIdAndInteractionTypeId(kpiId, type.getId())
-                .orElseThrow(() -> new IllegalArgumentException("KPI not found for InteractionType: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("KPI not found for InteractionType: " + code));
+
+        if (item.isArchived()) {
+            throw new ConflictException("KPI is already archived");
+        }
 
         item.setArchived(true);
     }
@@ -183,13 +259,26 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional
     public void unarchiveKpiPoolItem(String interactionTypeCode, Long kpiId) {
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
+
+        if (kpiId == null || kpiId < 1) {
+            throw new BadRequestException("kpiId must be positive");
+        }
+
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         KpiPoolItem item = kpiPoolItemRepository.findByIdAndInteractionTypeId(kpiId, type.getId())
-                .orElseThrow(() -> new IllegalArgumentException("KPI not found for InteractionType: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("KPI not found for InteractionType: " + code));
+
+        if (!item.isArchived()) {
+            throw new ConflictException("KPI is already un-archived");
+        }
 
         item.setArchived(false);
     }
@@ -197,13 +286,26 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional
     public void archiveCriticalPoolItem(String interactionTypeCode, Long criticalId) {
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
+
+        if (criticalId == null || criticalId < 1) {
+            throw new BadRequestException("criticalId must be positive");
+        }
+
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         CriticalConditionPoolItem item = criticalPoolRepository.findByIdAndInteractionTypeId(criticalId, type.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Critical not found for InteractionType: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("Critical not found for InteractionType: " + code));
+
+        if (item.isArchived()) {
+            throw new ConflictException("Critical is already archived");
+        }
 
         item.setArchived(true);
     }
@@ -211,21 +313,27 @@ public class ReviewConfigServiceImpl implements ReviewConfigService {
     @Override
     @Transactional
     public void unarchiveCriticalPoolItem(String interactionTypeCode, Long criticalId) {
+
+        if (interactionTypeCode == null || interactionTypeCode.trim().isEmpty()) {
+            throw new BadRequestException("InteractionType code is mandatory");
+        }
+
+        if (criticalId == null || criticalId < 1) {
+            throw new BadRequestException("criticalId must be positive");
+        }
+
         String code = interactionTypeCode.trim().toUpperCase();
 
         InteractionType type = interactionTypeRepository.findByCode(code)
-                .orElseThrow(() -> new IllegalArgumentException("InteractionType not found: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("InteractionType not found: " + code));
 
         CriticalConditionPoolItem item = criticalPoolRepository.findByIdAndInteractionTypeId(criticalId, type.getId())
-                .orElseThrow(() -> new IllegalArgumentException("Critical not found for InteractionType: " + code));
+                .orElseThrow(() -> new ResourceNotFoundException("Critical not found for InteractionType: " + code));
+
+        if (!item.isArchived()) {
+            throw new ConflictException("Critical is already un-archived");
+        }
 
         item.setArchived(false);
-    }
-
-
-
-
-    private User find_authenticated() {
-        return findAuthenticatedUser.getAuthenticatedUser();
     }
 }

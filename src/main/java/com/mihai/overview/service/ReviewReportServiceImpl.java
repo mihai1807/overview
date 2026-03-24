@@ -2,6 +2,7 @@ package com.mihai.overview.service;
 
 import com.mihai.overview.entity.InteractionType;
 import com.mihai.overview.entity.User;
+import com.mihai.overview.exception.BadRequestException;
 import com.mihai.overview.repository.InteractionTypeRepository;
 import com.mihai.overview.repository.UserRepository;
 import com.mihai.overview.repository.report.ReviewAverageAgg;
@@ -10,11 +11,8 @@ import com.mihai.overview.dto.request.ReviewAverageReportRequest;
 import com.mihai.overview.dto.response.ReportWarningResponse;
 import com.mihai.overview.dto.response.ReviewAverageReportResponse;
 import lombok.AllArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
-
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -35,6 +33,10 @@ public class ReviewReportServiceImpl implements ReviewReportService {
     @Override
     @Transactional(readOnly = true)
     public ReviewAverageReportResponse getAverageScore(ReviewAverageReportRequest request) {
+
+        if (request == null) {
+            throw new BadRequestException("Request body is mandatory");
+        }
 
         DateRange range = resolveDateRangeOrThrow(request);
 
@@ -57,7 +59,7 @@ public class ReviewReportServiceImpl implements ReviewReportService {
         );
 
         if (issues.hasAny()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, issues.toCombinedMessage());
+            throw new BadRequestException(issues.toCombinedMessage());
         }
 
         // --- aggregate ---
@@ -91,10 +93,10 @@ public class ReviewReportServiceImpl implements ReviewReportService {
         boolean hasFromTo = req.getFrom() != null || req.getTo() != null;
 
         if (hasMonth && hasFromTo) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provide either month OR (from and to), not both.");
+            throw new BadRequestException("Provide either month OR (from and to), not both.");
         }
         if (!hasMonth && !hasFromTo) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provide either month OR (from and to).");
+            throw new BadRequestException("Provide either month OR (from and to).");
         }
 
         LocalDate from;
@@ -106,18 +108,18 @@ public class ReviewReportServiceImpl implements ReviewReportService {
             try {
                 ym = YearMonth.parse(raw);
             } catch (DateTimeParseException e) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid month format. Expected YYYY-MM.");
+                throw new BadRequestException("Invalid month format. Expected YYYY-MM.");
             }
             from = ym.atDay(1);
             to = ym.atEndOfMonth();
         } else {
             if (req.getFrom() == null || req.getTo() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Both from and to are required when month is not provided.");
+                throw new BadRequestException("Both from and to are required when month is not provided.");
             }
             from = req.getFrom();
             to = req.getTo();
             if (from.isAfter(to)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "from must be <= to.");
+                throw new BadRequestException("from must be <= to.");
             }
         }
 
@@ -148,7 +150,7 @@ public class ReviewReportServiceImpl implements ReviewReportService {
             return ids;
         }
 
-        // fetch all by code IN (requires repository method addition below)
+        // fetch all interaction types matching the requested codes
         List<InteractionType> found = interactionTypeRepository.findByCodeIn(codes);
 
         Set<String> foundCodes = found.stream()

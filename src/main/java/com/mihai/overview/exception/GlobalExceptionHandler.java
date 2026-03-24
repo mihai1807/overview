@@ -2,8 +2,10 @@ package com.mihai.overview.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.server.ResponseStatusException;
@@ -42,6 +44,28 @@ public class GlobalExceptionHandler {
         log.warn("Handled ResponseStatusException", exc);
         return buildResponseEntity(exc, HttpStatus.valueOf(exc.getStatusCode().value()));
     }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException exc) {
+        log.warn("Handled DataIntegrityViolationException", exc);
+        return buildResponseEntity(
+                new ConflictException("Resource violates a uniqueness constraint"),
+                HttpStatus.CONFLICT
+        );
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiErrorResponse> handleValidationException(MethodArgumentNotValidException ex) {
+        String message = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(err -> err.getField() + ": " + err.getDefaultMessage())
+                .findFirst()
+                .orElse("Validation error");
+
+        return buildResponseEntity(new BadRequestException(message), HttpStatus.BAD_REQUEST);
+    }
+
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleUnhandledException(Exception exc) {

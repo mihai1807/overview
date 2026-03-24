@@ -1,5 +1,7 @@
 package com.mihai.overview.service;
 
+import com.mihai.overview.exception.BadRequestException;
+import com.mihai.overview.exception.ConflictException;
 import com.mihai.overview.security.AppRole;
 import com.mihai.overview.entity.Authority;
 import com.mihai.overview.entity.User;
@@ -31,10 +33,14 @@ public class AuthenticationServiceImpl implements AuthenticationService{
 
     @Transactional
     @Override
-    public void register(RegisterRequest input) throws Exception {
+    public void register(RegisterRequest input) {
+
+        if (input == null) {
+            throw new BadRequestException("Register request must not be null");
+        }
 
         if (isEmailTaken(input.getEmail())) {
-            throw new Exception("Email already taken.");
+            throw new ConflictException("Email already taken.");
         }
 
         User user = buildNewUser(input);
@@ -46,19 +52,20 @@ public class AuthenticationServiceImpl implements AuthenticationService{
     @Transactional(readOnly = true)
     public AuthenticationResponse login(AuthenticationRequest request) {
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+        if (request == null) {
+            throw new BadRequestException("Authentication request must not be null");
+        }
 
-        User user = userRepository.findByEmail(request.getEmail()).orElseThrow(() -> new IllegalArgumentException("Invalid username or password."));
+        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new IllegalStateException("Authenticated user record not found"));
 
         String jwtToken = jwtService.generateToken(new HashMap<>(), user);
         return new AuthenticationResponse(jwtToken);
     }
 
-    private boolean isEmailTaken (String email) {
-        return  userRepository.findByEmail(email).isPresent();
-    }
+    private boolean isEmailTaken (String email) { return userRepository.findByEmail(email).isPresent(); }
 
     private User buildNewUser(RegisterRequest input) {
         User user = new User();
